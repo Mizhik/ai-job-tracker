@@ -1,6 +1,6 @@
 from asyncpg import Pool, create_pool as create_asyncpg_pool
 
-from backend.infrastructure.db.pool.settings import DBSettings
+from backend.infrastructure.postgres.pool.settings import DBSettings
 
 
 async def create_pool(settings: DBSettings) -> Pool:

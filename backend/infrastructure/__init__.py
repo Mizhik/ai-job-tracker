@@ -1,1 +1,1 @@
-from .db import create_pool, DBSettings
+from .postgres import create_pool, DBSettings

@@ -12,10 +12,12 @@ from .endpoints import router as ai_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     container = Container()
+    app.state.container = container
     await container.init_resources()
     yield
 
     await container.shutdown_resources()
+    del app.state.container
 
 
 def build_app() -> FastAPI:

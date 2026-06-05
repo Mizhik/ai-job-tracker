@@ -19,8 +19,8 @@ services:
 
   migrate:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: dockerfiles/Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -38,8 +38,8 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: dockerfiles/Dockerfile
     depends_on:
       db:
         condition: service_healthy
