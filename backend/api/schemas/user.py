@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, field_validator
 
 from backend.app.users.commands.register_user import RegisterUserCommand
+from backend.app.users.commands.update_user import UpdateUserCommand
 from backend.core.user import User
 
 
@@ -63,6 +64,14 @@ class UserUpdateRequest(BaseModel):
             raise ValueError("Last name must be at least 2 characters long")
         return value
 
+    def to_command(self, user_id: UUID, current_user: User) -> UpdateUserCommand:
+        return UpdateUserCommand(
+            id=user_id,
+            current_user=current_user,
+            first_name=self.first_name,
+            last_name=self.last_name,
+            email=self.email,
+        )
 
 class UserResponse(BaseModel):
     id: UUID

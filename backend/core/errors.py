@@ -26,3 +26,6 @@ class TokenIsExpiredError(DomainException):
 
 class TokenInvalidError(DomainException):
     default_detail = "Token is invalid"
+
+class NotEnoughPermissionsError(DomainException):
+    default_detail = "Not enough permissions to perform this action"
