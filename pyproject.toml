@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "ai-job-tracker"
+version = "0.1.0"
+description = ""
+authors = ["Mizhik <vlad.mezhinskiy07@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "backend" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "*"
+uvicorn = "*"
+asyncpg = "*"
+dependency-injector = "*"
+yoyo-migrations = "*"
+psycopg2-binary = "*"
+pydantic-settings = "*"
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+passlib = {extras = ["argon2"], version = "^1.7.4"}
+pydantic = {extras = ["email"], version = "^2.13.4"}
+argon2-cffi = "^25.1.0"
+python-multipart = "^0.0.32"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+server = "backend.api.main:main"

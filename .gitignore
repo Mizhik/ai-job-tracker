@@ -1,0 +1,6 @@
+/docs
+*lock
+*ini
+*env
+/migrations
+__pycache__
