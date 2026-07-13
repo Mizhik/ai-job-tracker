@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from .container import Container
-from .endpoints import router as ai_router
+from .endpoints import router as user_router
+from .endpoints.jobs import router as jobs_router
 
 
 @asynccontextmanager
@@ -35,7 +36,10 @@ def build_app() -> FastAPI:
         allow_headers=("*",),
     )
 
-    for prefix, router in (("", ai_router),):
+    for prefix, router in (
+        ("", user_router),
+        ("", jobs_router),
+    ):
         app.include_router(router=router, prefix=prefix)
 
     return app

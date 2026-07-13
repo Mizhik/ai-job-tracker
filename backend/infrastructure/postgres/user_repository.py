@@ -57,7 +57,6 @@ class AsyncpgUserRepository(UserRepository):
             user.email,
             user.id,
         )
-        
 
     async def delete(self, user: User) -> None:
         query = """
@@ -65,7 +64,6 @@ class AsyncpgUserRepository(UserRepository):
             WHERE id = $1::UUID
         """
         await self._pool.execute(query, user.id)
-        
 
     async def get_by_id(self, user_id: UUID) -> User | None:
         query = """
@@ -86,7 +84,6 @@ class AsyncpgUserRepository(UserRepository):
                 created_at=user_data["created_at"],
             )
         return None
-        
 
     def _user_to_db_dict(self, user: User) -> dict:
         return {

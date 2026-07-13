@@ -6,9 +6,11 @@ from fastapi.security import OAuth2PasswordBearer
 
 from backend.api.dependencies import ActiveUserDependency, CurrentUserDependency
 from backend.app.auth.service import AuthService
+from backend.app.jobs.service import JobService
 from backend.app.users.service import UserService
 from backend.infrastructure.argon2_password_hasher import Argon2PasswordHasher
 from backend.infrastructure.postgres import create_pool, DBSettings
+from backend.infrastructure.postgres.job_repository import AsyncpgJobRepository
 from backend.infrastructure.postgres.user_repository import AsyncpgUserRepository
 from backend.infrastructure.settings.auth import AuthSettings
 from backend.infrastructure.token.jwt_token_service import JwtTokenService
@@ -30,6 +32,7 @@ class Container(containers.DeclarativeContainer):
     pool = providers.Resource(resource_asyncpg_pool, db_settings=db_settings)
 
     user_repository = providers.Singleton(AsyncpgUserRepository, pool)
+    job_repository = providers.Singleton(AsyncpgJobRepository, pool)
     password_hasher = providers.Singleton(Argon2PasswordHasher)
     jwt_token_service = providers.Singleton(
         JwtTokenService,
@@ -45,6 +48,11 @@ class Container(containers.DeclarativeContainer):
         UserService,
         user_repository=user_repository,
         password_hasher=password_hasher,
+    )
+
+    job_service = providers.Singleton(
+        JobService,
+        job_repository=job_repository,
     )
 
     auth_service = providers.Singleton(

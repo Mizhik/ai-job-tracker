@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi.exceptions import ValidationException
 
-from backend.core.errors import NotEnoughPermissionsError, UserAlreadyExistsException
+from backend.core.errors import NotEnoughPermissionsError, UserNotFoundError
 from backend.core.repository.user_repository import UserRepository
 from backend.core.user import User
 
@@ -45,7 +45,7 @@ class UpdateUserCommandHandler:
         existing_user = await self._user_repository.get_by_id(command.id)
 
         if not existing_user:
-            raise UserAlreadyExistsException(
+            raise UserNotFoundError(
                 f"User with ID {command.id} does not exist"
             )
 
