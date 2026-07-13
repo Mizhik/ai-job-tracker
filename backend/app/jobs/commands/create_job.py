@@ -23,7 +23,7 @@ class CreateJobCommandHandler:
     def __init__(self, job_repository: JobRepository):
         self._job_repository = job_repository
 
-    async def handle(self, command: CreateJobCommand) -> Job:
+    async def __call__(self, command: CreateJobCommand) -> Job:
         job = Job(
             id=uuid4(),
             title=command.title,

@@ -12,7 +12,7 @@ class JobService:
         self._list_jobs_handler = ListJobsQueryHandler(job_repository)
 
     async def create_job(self, command: CreateJobCommand) -> Job:
-        return await self._create_job_handler.handle(command)
+        return await self._create_job_handler(command)
 
     async def get_job_by_id(self, query: GetJobByIdQuery) -> Job:
         return await self._get_job_by_id_handler(query)
