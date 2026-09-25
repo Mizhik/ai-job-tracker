@@ -9,7 +9,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir poetry
+RUN pip install --no-cache-dir poetry==2.5.1
 
 WORKDIR /app
 
@@ -18,7 +18,6 @@ RUN poetry install --only main --no-root
 
 COPY backend ./backend
 COPY migrations ./migrations
-COPY yoyo.ini ./
 
 EXPOSE 8000
 

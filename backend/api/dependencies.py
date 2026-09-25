@@ -1,6 +1,6 @@
 from typing import NoReturn
 
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 
@@ -8,6 +8,9 @@ from backend.app.auth.queries.get_user_by_token import GetUserByTokenQuery
 from backend.app.auth.service import AuthService
 from backend.core.errors import TokenInvalidError, TokenIsExpiredError, UserNotFoundError
 from backend.core.user import User
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login", auto_error=False)
 
 
 class CurrentUserDependency:
@@ -72,13 +75,17 @@ class ActiveUserDependency:
         return current_user
 
 
-async def get_current_user(request: Request) -> User | None:
+async def get_current_user(
+    request: Request, _token: str | None = Depends(oauth2_scheme)
+) -> User | None:
     container = request.app.state.container
     dependency = await container.get_current_user()
     return await dependency(request)
 
 
-async def require_active_user(request: Request) -> User:
+async def require_active_user(
+    request: Request, _token: str | None = Depends(oauth2_scheme)
+) -> User:
     container = request.app.state.container
     dependency = await container.require_active_user()
     return await dependency(request)

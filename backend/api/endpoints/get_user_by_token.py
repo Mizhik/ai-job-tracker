@@ -1,5 +1,4 @@
 from typing import Annotated
-from dependency_injector.wiring import inject
 from fastapi import Depends
 
 from backend.api.dependencies import require_active_user

@@ -32,7 +32,7 @@ services:
     command:
       - sh
       - -c
-      - yoyo apply --database "postgresql://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@db:5432/$${POSTGRES_DBNAME}" migrations
+      - yoyo apply --batch --database "postgresql://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@db:5432/$${POSTGRES_DBNAME}" migrations
     profiles:
       - migrate
 
@@ -51,6 +51,9 @@ services:
       SERVER_ADDRESS: 0.0.0.0
       SERVER_PORT: 8000
       SERVER_RELOAD: false
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
+      AUTH_ALGORITHM: ${AUTH_ALGORITHM}
+      AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: ${AUTH_ACCESS_TOKEN_EXPIRE_MINUTES}
     ports:
       - "${APP_PORT:-8000}:8000"
     profiles:

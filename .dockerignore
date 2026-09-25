@@ -17,3 +17,12 @@ dockerfiles
 README.md
 .env
 dev.env
+*.env
+.env.*
+yoyo.ini
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets/

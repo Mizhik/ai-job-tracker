@@ -13,8 +13,8 @@ class AsyncpgUserRepository(UserRepository):
 
     async def create(self, user: User) -> None:
         query = """
-            INSERT INTO users (first_name, last_name, email, hashed_password)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO users (id, first_name, last_name, email, hashed_password)
+            VALUES ($1, $2, $3, $4, $5)
         """
         user_data = self._user_to_db_dict(user)
         try:
@@ -87,6 +87,7 @@ class AsyncpgUserRepository(UserRepository):
 
     def _user_to_db_dict(self, user: User) -> dict:
         return {
+            "id": user.id,
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,

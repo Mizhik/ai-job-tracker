@@ -2,9 +2,8 @@ from typing import AsyncGenerator
 
 from dependency_injector import containers, providers
 from asyncpg import Pool
-from fastapi.security import OAuth2PasswordBearer
 
-from backend.api.dependencies import ActiveUserDependency, CurrentUserDependency
+from backend.api.dependencies import ActiveUserDependency, CurrentUserDependency, oauth2_scheme
 from backend.app.auth.service import AuthService
 from backend.app.jobs.service import JobService
 from backend.app.users.service import UserService
@@ -38,11 +37,7 @@ class Container(containers.DeclarativeContainer):
         JwtTokenService,
         settings=auth_settings,
     )
-    oauth2_scheme = providers.Singleton(
-        OAuth2PasswordBearer,
-        tokenUrl="/token",
-        auto_error=False,
-    )
+    oauth2_scheme = providers.Object(oauth2_scheme)
 
     user_service = providers.Singleton(
         UserService,

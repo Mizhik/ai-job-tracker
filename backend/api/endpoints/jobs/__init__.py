@@ -1,11 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from backend.api.dependencies import require_active_user
 
 from .create_job import create_job as create_job_endpoint
 from .list_jobs import list_jobs as list_jobs_endpoint
 from .get_job import get_job as get_job_endpoint
 from backend.api.schemas.job import JobResponse
 
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+router = APIRouter(
+    prefix="/jobs",
+    tags=["jobs"],
+    dependencies=[Depends(require_active_user)],
+)
 
 router.add_api_route(
     path="",
