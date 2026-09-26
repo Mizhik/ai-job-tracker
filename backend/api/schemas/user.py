@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 from backend.app.users.commands.register_user import RegisterUserCommand
 from backend.app.users.commands.update_user import UpdateUserCommand
 from backend.core.user import User
+from backend.core.utils import normalize_email
 
 
 class UserCreateRequest(BaseModel):
@@ -13,6 +14,10 @@ class UserCreateRequest(BaseModel):
     last_name: str
     email: EmailStr
     password: str
+
+    @field_validator("email", mode="after")
+    def normalize_email_field(cls, value: EmailStr) -> str:
+        return normalize_email(value)
 
     @field_validator("password")
     def validate_password(cls, value: str) -> str:
@@ -39,10 +44,12 @@ class UserUpdateRequest(BaseModel):
     last_name: str | None = None
     email: EmailStr | None = None
 
-    @field_validator("email")
-    def validate_email(cls, value: EmailStr | None) -> EmailStr | None:
-        if value is not None and not value.strip():
-            raise ValueError("Email cannot be empty")
+    @field_validator("email", mode="after")
+    def validate_email(cls, value: EmailStr | None) -> str | None:
+        if value is not None:
+            if not value.strip():
+                raise ValueError("Email cannot be empty")
+            return normalize_email(value)
 
         return value
 

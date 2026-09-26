@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi.exceptions import ValidationException
-
-from backend.core.errors import NotEnoughPermissionsError, UserNotFoundError
+from backend.core.errors import (
+    NoUpdateDataProvidedError,
+    NotEnoughPermissionsError,
+    UserNotFoundError,
+)
 from backend.core.repository.user_repository import UserRepository
 from backend.core.user import User
+from backend.core.utils import normalize_email
 
 
 @dataclass
@@ -15,6 +18,10 @@ class UpdateUserCommand:
     first_name: str | None = None
     last_name: str | None = None
     email: str | None = None
+
+    def __post_init__(self):
+        if self.email is not None:
+            self.email = normalize_email(self.email)
 
     def has_update_data(self) -> bool:
         return any(
@@ -40,7 +47,7 @@ class UpdateUserCommandHandler:
 
     async def handle(self, command: UpdateUserCommand) -> User:
         if not command.has_update_data():
-            raise ValidationException("No data provided for update")
+            raise NoUpdateDataProvidedError()
 
         existing_user = await self._user_repository.get_by_id(command.id)
 

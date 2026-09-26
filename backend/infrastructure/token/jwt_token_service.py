@@ -1,8 +1,10 @@
 import datetime
 
-from jose import jwt
+from jose import ExpiredSignatureError, JWTError, jwt
+from pydantic import ValidationError
 
 from backend.core.abc.access_token_generator import AccessTokenGenerator
+from backend.core.errors import TokenInvalidError, TokenIsExpiredError
 from backend.core.token import DecodedAccessToken
 from backend.infrastructure.settings.auth import AuthSettings
 
@@ -39,17 +41,30 @@ class JwtTokenService(AccessTokenGenerator):
         return encoded_jwt
 
     def decode_access_token(self, token: str) -> DecodedAccessToken:
-        payload = jwt.decode(
-            token,
-            self._settings.secret_key,
-            algorithms=[self._settings.algorithm],
-        )
-        email = payload.get("sub")
-        if not email:
-            raise ValueError("Invalid token: missing subject")
+        try:
+            payload = jwt.decode(
+                token,
+                self._settings.secret_key,
+                algorithms=[self._settings.algorithm],
+            )
+            email = payload.get("sub")
+            if not email:
+                raise TokenInvalidError("Invalid token: missing subject")
 
-        expires_at = datetime.datetime.fromtimestamp(
-            payload.get("exp"), tz=datetime.timezone.utc
-        )
+            exp = payload.get("exp")
+            if exp is None:
+                raise TokenInvalidError("Invalid token: missing expiration")
 
-        return DecodedAccessToken(email=email, expires_at=expires_at)
+            expires_at = datetime.datetime.fromtimestamp(
+                exp, tz=datetime.timezone.utc
+            )
+
+            return DecodedAccessToken(email=email, expires_at=expires_at)
+        except (TokenInvalidError, TokenIsExpiredError):
+            raise
+        except ExpiredSignatureError:
+            raise TokenIsExpiredError()
+        except JWTError:
+            raise TokenInvalidError("Invalid token")
+        except (ValueError, TypeError, OverflowError, ValidationError) as err:
+            raise TokenInvalidError(f"Invalid token claim: {err}")

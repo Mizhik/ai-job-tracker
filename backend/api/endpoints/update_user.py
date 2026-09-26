@@ -6,7 +6,11 @@ from fastapi import Depends, HTTPException, status
 from backend.api.dependencies import require_active_user
 from backend.api.schemas.user import UserUpdateRequest, UserResponse
 from backend.app.users.service import UserService
-from backend.core.errors import NotEnoughPermissionsError, UserAlreadyExistsException
+from backend.core.errors import (
+    NoUpdateDataProvidedError,
+    NotEnoughPermissionsError,
+    UserAlreadyExistsException,
+)
 from backend.core.user import User
 
 
@@ -21,7 +25,11 @@ async def update_user(
 
     try:
         user = await user_service.update_user(command)
-    except (UserAlreadyExistsException, NotEnoughPermissionsError) as err:
+    except (
+        UserAlreadyExistsException,
+        NotEnoughPermissionsError,
+        NoUpdateDataProvidedError,
+    ) as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=err.detail,

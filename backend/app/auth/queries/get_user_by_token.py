@@ -4,6 +4,7 @@ from backend.core.abc.access_token_generator import AccessTokenGenerator
 from backend.core.errors import UserNotFoundError
 from backend.core.repository.user_repository import UserRepository
 from backend.core.user import User
+from backend.core.utils import normalize_email
 
 
 @dataclass
@@ -24,7 +25,8 @@ class GetUserByTokenQueryHandler:
         access_token = self._access_token_service.decode_access_token(query.token)
         access_token.validate()
 
-        user = await self._user_repository.get_by_email(access_token.email)
+        email = normalize_email(access_token.email)
+        user = await self._user_repository.get_by_email(email)
 
         if user is None:
             raise UserNotFoundError()

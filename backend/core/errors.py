@@ -33,6 +33,10 @@ class TokenInvalidError(DomainException):
     default_detail = "Token is invalid"
 
 
+class NoUpdateDataProvidedError(DomainException):
+    default_detail = "No data provided for update"
+
+
 class NotEnoughPermissionsError(DomainException):
     default_detail = "Not enough permissions to perform this action"
 

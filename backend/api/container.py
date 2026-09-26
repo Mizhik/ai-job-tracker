@@ -53,7 +53,7 @@ class Container(containers.DeclarativeContainer):
     auth_service = providers.Singleton(
         AuthService,
         user_repository=user_repository,
-        auth_settings=auth_settings,
+        access_token_expire_delta=auth_settings.provided.access_token_expire_delta,
         access_token_generator=jwt_token_service,
         password_hasher=password_hasher,
     )

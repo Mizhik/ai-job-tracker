@@ -50,13 +50,16 @@ class AsyncpgUserRepository(UserRepository):
                 email = $3::VARCHAR
             WHERE id = $4::UUID
         """
-        await self._pool.execute(
-            query,
-            user.first_name,
-            user.last_name,
-            user.email,
-            user.id,
-        )
+        try:
+            await self._pool.execute(
+                query,
+                user.first_name,
+                user.last_name,
+                user.email,
+                user.id,
+            )
+        except asyncpg.exceptions.UniqueViolationError:
+            raise UserAlreadyExistsException()
 
     async def delete(self, user: User) -> None:
         query = """

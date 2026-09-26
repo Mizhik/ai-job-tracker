@@ -6,6 +6,7 @@ from backend.core.abc.password_hasher import PasswordHasher
 from backend.core.errors import UserAlreadyExistsException
 from backend.core.repository.user_repository import UserRepository
 from backend.core.user import User
+from backend.core.utils import normalize_email
 
 
 @dataclass
@@ -14,6 +15,9 @@ class RegisterUserCommand:
     last_name: str
     email: str
     password: str
+
+    def __post_init__(self):
+        self.email = normalize_email(self.email)
 
 
 class RegisterUserCommandHandler:
