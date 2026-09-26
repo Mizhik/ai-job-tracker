@@ -1,4 +1,5 @@
 import enum
+from dataclasses import dataclass
 from uuid import UUID
 
 from .base import Base
@@ -12,6 +13,7 @@ class ApplicationStatus(enum.Enum):
     REJECTED = "rejected"
 
 
+@dataclass(kw_only=True)
 class Application(Base):
     user_id: UUID
     job_id: UUID

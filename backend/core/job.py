@@ -1,11 +1,12 @@
+from dataclasses import dataclass, field
 from uuid import UUID
-
-from pydantic import Field
 
 from .base import Base
 
 
+@dataclass(kw_only=True)
 class Job(Base):
+    user_id: UUID
     title: str
     company: str
     description: str | None = None
@@ -17,10 +18,11 @@ class Job(Base):
     source: str | None = None
 
 
+@dataclass(kw_only=True)
 class JobMatch(Base):
     job_id: UUID
     user_id: UUID
     match_score: float
-    matched_skills: list[str] = Field(default_factory=list)
-    missing_skills: list[str] = Field(default_factory=list)
-    resume_tips: list[str] = Field(default_factory=list)
+    matched_skills: list[str] = field(default_factory=list)
+    missing_skills: list[str] = field(default_factory=list)
+    resume_tips: list[str] = field(default_factory=list)

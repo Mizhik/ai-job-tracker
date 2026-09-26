@@ -346,7 +346,6 @@ async def test_login_and_error_handling(test_app_and_repo):
         first_name="Blocked",
         last_name="User",
         is_active=False,
-        is_blocked=True,
         created_at=datetime.now(timezone.utc),
     )
     repo.users["blocked@example.com"] = blocked_user

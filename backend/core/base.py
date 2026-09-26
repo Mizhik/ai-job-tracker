@@ -1,10 +1,10 @@
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
 
-
-class Base(BaseModel):
+@dataclass(kw_only=True)
+class Base:
     id: UUID
     created_at: datetime
     updated_at: datetime | None = None

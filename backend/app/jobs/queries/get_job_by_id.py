@@ -9,6 +9,7 @@ from backend.core.repository.job_repository import JobRepository
 @dataclass
 class GetJobByIdQuery:
     job_id: UUID
+    user_id: UUID
 
 
 class GetJobByIdQueryHandler:
@@ -16,7 +17,7 @@ class GetJobByIdQueryHandler:
         self._job_repository = job_repository
 
     async def __call__(self, query: GetJobByIdQuery) -> Job:
-        job = await self._job_repository.get_by_id(query.job_id)
+        job = await self._job_repository.get_by_id(query.job_id, query.user_id)
         if job is None:
             raise JobNotFoundError()
         return job

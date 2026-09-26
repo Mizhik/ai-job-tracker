@@ -1,3 +1,4 @@
+import inspect
 from typing import NoReturn
 
 from fastapi import Depends, HTTPException, Request, status
@@ -79,7 +80,9 @@ async def get_current_user(
     request: Request, _token: str | None = Depends(oauth2_scheme)
 ) -> User | None:
     container = request.app.state.container
-    dependency = await container.get_current_user()
+    dependency = container.get_current_user()
+    if inspect.isawaitable(dependency):
+        dependency = await dependency
     return await dependency(request)
 
 
@@ -87,5 +90,7 @@ async def require_active_user(
     request: Request, _token: str | None = Depends(oauth2_scheme)
 ) -> User:
     container = request.app.state.container
-    dependency = await container.require_active_user()
+    dependency = container.require_active_user()
+    if inspect.isawaitable(dependency):
+        dependency = await dependency
     return await dependency(request)

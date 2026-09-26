@@ -17,8 +17,9 @@ class JobCreateInput(BaseModel):
     source_url: str | None = None
     source: str | None = None
 
-    def to_command(self) -> CreateJobCommand:
+    def to_command(self, user_id: UUID) -> CreateJobCommand:
         return CreateJobCommand(
+            user_id=user_id,
             title=self.title,
             company=self.company,
             description=self.description,
@@ -29,7 +30,8 @@ class JobCreateInput(BaseModel):
             source_url=self.source_url,
             source=self.source,
         )
-    
+
+
 class JobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

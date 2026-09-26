@@ -1,7 +1,10 @@
+from dataclasses import dataclass
+
 from backend.core.errors import EmailOrPasswordIncorrectError, UserBlockedError
 from .base import Base
 
 
+@dataclass(kw_only=True)
 class User(Base):
     email: str
     hashed_password: str
