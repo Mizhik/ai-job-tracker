@@ -53,16 +53,6 @@ class AsyncpgJobRepository(JobRepository):
             return Job(**dict(row))
         return None
 
-    async def list(self, user_id: UUID) -> list[Job]:
-        query = """
-            SELECT *
-            FROM jobs
-            WHERE user_id = $1::UUID
-            ORDER BY created_at DESC
-        """
-        rows = await self._pool.fetch(query, user_id)
-        return [Job(**dict(row)) for row in rows]
-
     async def list_and_count(
         self,
         user_id: UUID,

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends
 
 from backend.api.dependencies import require_active_user
+from backend.api.schemas.job import JobListResponse, JobResponse
 
 from .create_job import create_job as create_job_endpoint
-from .list_jobs import list_jobs as list_jobs_endpoint
+from .delete_job import delete_job as delete_job_endpoint
 from .get_job import get_job as get_job_endpoint
-from backend.api.schemas.job import JobResponse
+from .list_jobs import list_jobs as list_jobs_endpoint
+from .update_job import update_job as update_job_endpoint
 
 router = APIRouter(
     prefix="/jobs",
@@ -15,9 +17,7 @@ router = APIRouter(
 
 router.add_api_route(
     path="",
-    methods={
-        "POST",
-    },
+    methods={"POST"},
     endpoint=create_job_endpoint,
     response_model=JobResponse,
     status_code=201,
@@ -25,20 +25,31 @@ router.add_api_route(
 
 router.add_api_route(
     path="",
-    methods={
-        "GET",
-    },
+    methods={"GET"},
     endpoint=list_jobs_endpoint,
-    response_model=list[JobResponse],
+    response_model=JobListResponse,
     status_code=200,
 )
 
 router.add_api_route(
     path="/{job_id}",
-    methods={
-        "GET",
-    },
+    methods={"GET"},
     endpoint=get_job_endpoint,
     response_model=JobResponse,
     status_code=200,
+)
+
+router.add_api_route(
+    path="/{job_id}",
+    methods={"PATCH"},
+    endpoint=update_job_endpoint,
+    response_model=JobResponse,
+    status_code=200,
+)
+
+router.add_api_route(
+    path="/{job_id}",
+    methods={"DELETE"},
+    endpoint=delete_job_endpoint,
+    status_code=204,
 )

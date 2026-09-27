@@ -17,10 +17,6 @@ class JobRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def list(self, user_id: UUID) -> list[Job]:
-        raise NotImplementedError
-
-    @abstractmethod
     async def list_and_count(
         self,
         user_id: UUID,

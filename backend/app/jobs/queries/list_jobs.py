@@ -25,10 +25,7 @@ class ListJobsQueryHandler:
     def __init__(self, job_repository: JobRepository):
         self._job_repository = job_repository
 
-    async def __call__(self, query: ListJobsQuery) -> list[Job]:
-        return await self._job_repository.list(query.user_id)
-
-    async def list_v1(self, query: ListJobsQuery) -> ListJobsResult:
+    async def __call__(self, query: ListJobsQuery) -> ListJobsResult:
         items, total = await self._job_repository.list_and_count(
             user_id=query.user_id,
             q=query.q,

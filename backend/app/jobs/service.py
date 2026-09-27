@@ -27,8 +27,5 @@ class JobService:
     async def get_job_by_id(self, query: GetJobByIdQuery) -> Job:
         return await self._get_job_by_id_handler(query)
 
-    async def list_jobs(self, query: ListJobsQuery) -> list[Job]:
+    async def list_jobs(self, query: ListJobsQuery) -> ListJobsResult:
         return await self._list_jobs_handler(query)
-
-    async def list_jobs_v1(self, query: ListJobsQuery) -> ListJobsResult:
-        return await self._list_jobs_handler.list_v1(query)
