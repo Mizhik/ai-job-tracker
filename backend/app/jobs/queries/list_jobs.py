@@ -8,6 +8,17 @@ from backend.core.repository.job_repository import JobRepository
 @dataclass
 class ListJobsQuery:
     user_id: UUID
+    q: str | None = None
+    limit: int = 20
+    offset: int = 0
+
+
+@dataclass
+class ListJobsResult:
+    items: list[Job]
+    total: int
+    limit: int
+    offset: int
 
 
 class ListJobsQueryHandler:
@@ -16,3 +27,17 @@ class ListJobsQueryHandler:
 
     async def __call__(self, query: ListJobsQuery) -> list[Job]:
         return await self._job_repository.list(query.user_id)
+
+    async def list_v1(self, query: ListJobsQuery) -> ListJobsResult:
+        items, total = await self._job_repository.list_and_count(
+            user_id=query.user_id,
+            q=query.q,
+            limit=query.limit,
+            offset=query.offset,
+        )
+        return ListJobsResult(
+            items=items,
+            total=total,
+            limit=query.limit,
+            offset=query.offset,
+        )

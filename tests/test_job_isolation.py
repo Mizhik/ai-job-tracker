@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
@@ -38,6 +39,42 @@ class InMemoryJobRepository(JobRepository):
 
     async def list(self, user_id: UUID) -> list[Job]:
         return [job for job in self.jobs if job.user_id == user_id]
+
+    async def list_and_count(
+        self,
+        user_id: UUID,
+        q: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[Job], int]:
+        user_jobs = [j for j in self.jobs if j.user_id == user_id]
+        if q and q.strip():
+            term = q.strip().lower()
+            filtered = [
+                j for j in user_jobs
+                if term in j.title.lower() or term in j.company.lower()
+            ]
+        else:
+            filtered = user_jobs
+
+        filtered.sort(key=lambda j: (j.created_at, j.id), reverse=True)
+        total = len(filtered)
+        paged = filtered[offset : offset + limit]
+        return paged, total
+
+    async def update(self, job: Job) -> bool:
+        for idx, existing in enumerate(self.jobs):
+            if existing.id == job.id and existing.user_id == job.user_id:
+                self.jobs[idx] = job
+                return True
+        return False
+
+    async def delete(self, job_id: UUID, user_id: UUID) -> bool:
+        for idx, existing in enumerate(self.jobs):
+            if existing.id == job_id and existing.user_id == user_id:
+                del self.jobs[idx]
+                return True
+        return False
 
 
 class MockUserRepository:
@@ -148,12 +185,13 @@ def auth_setup():
         "backend.api.endpoints.jobs.create_job",
         "backend.api.endpoints.jobs.get_job",
         "backend.api.endpoints.jobs.list_jobs",
+        "backend.api.endpoints.jobs.v1_jobs",
         "backend.api.dependencies",
     ])
 
-    app = FastAPI()
+    from backend.api.main import build_app
+    app = build_app()
     app.state.container = container
-    app.include_router(jobs_router)
 
     token_user1 = jwt_service.create_access_token("user1@example.com")
     token_user2 = jwt_service.create_access_token("user2@example.com")
@@ -283,3 +321,80 @@ async def test_asyncpg_job_repository_sql():
     sql_list = list_args[0]
     assert "WHERE user_id = $1::UUID" in sql_list
     assert list_args[1] == user_id
+
+
+@pytest.mark.asyncio
+async def test_asyncpg_job_repository_v1_sql_operations():
+    mock_pool = MagicMock()
+    mock_pool.execute = AsyncMock(return_value="UPDATE 1")
+    mock_pool.fetchval = AsyncMock(return_value=5)
+    mock_pool.fetch = AsyncMock(return_value=[])
+
+    repo = AsyncpgJobRepository(pool=mock_pool)
+
+    job_id = uuid4()
+    user_id = uuid4()
+    now = datetime.now(timezone.utc)
+
+    # 1. Test update SQL and owner predicate
+    job = Job(
+        id=job_id,
+        user_id=user_id,
+        title="Lead Engineer",
+        company="BigCorp",
+        salary_min=100,
+        salary_max=200,
+        currency="USD",
+        salary_period="year",
+        created_at=now,
+        updated_at=now,
+    )
+    success = await repo.update(job)
+    assert success is True
+    mock_pool.execute.assert_called_once()
+    update_args = mock_pool.execute.call_args[0]
+    sql_update = update_args[0]
+    assert "UPDATE jobs" in sql_update
+    assert "WHERE id = $1::UUID AND user_id = $2::UUID" in sql_update
+    assert update_args[1] == job_id
+    assert update_args[2] == user_id
+    assert update_args[3] == "Lead Engineer"
+    assert update_args[9] == "USD"
+    assert update_args[10] == "year"
+
+    # 2. Test delete SQL and owner predicate
+    mock_pool.execute.reset_mock()
+    mock_pool.execute.return_value = "DELETE 1"
+    del_success = await repo.delete(job_id=job_id, user_id=user_id)
+    assert del_success is True
+    del_args = mock_pool.execute.call_args[0]
+    sql_del = del_args[0]
+    assert "DELETE FROM jobs" in sql_del
+    assert "WHERE id = $1::UUID AND user_id = $2::UUID" in sql_del
+    assert del_args[1] == job_id
+    assert del_args[2] == user_id
+
+    # 3. Test list_and_count with search, escaping %, _, and pagination offset
+    items, total = await repo.list_and_count(
+        user_id=user_id,
+        q="100%_test",
+        limit=10,
+        offset=50,
+    )
+    assert items == []
+    assert total == 5
+
+    count_call_args = mock_pool.fetchval.call_args[0]
+    assert "SELECT COUNT(*)" in count_call_args[0]
+    assert "user_id = $1::UUID" in count_call_args[0]
+    assert "ESCAPE '\\'" in count_call_args[0]
+    assert count_call_args[1] == user_id
+    assert count_call_args[2] == "%100\\%\\_test%"
+
+    fetch_call_args = mock_pool.fetch.call_args[0]
+    assert "ORDER BY created_at DESC, id DESC" in fetch_call_args[0]
+    assert "LIMIT $3 OFFSET $4" in fetch_call_args[0]
+    assert fetch_call_args[1] == user_id
+    assert fetch_call_args[2] == "%100\\%\\_test%"
+    assert fetch_call_args[3] == 10
+    assert fetch_call_args[4] == 50

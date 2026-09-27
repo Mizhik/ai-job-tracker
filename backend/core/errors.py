@@ -43,3 +43,7 @@ class NotEnoughPermissionsError(DomainException):
 
 class JobNotFoundError(DomainException):
     default_detail = "Job not found"
+
+
+class InvalidJobDataError(DomainException):
+    default_detail = "Invalid job data"

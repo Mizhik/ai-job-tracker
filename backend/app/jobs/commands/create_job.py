@@ -15,6 +15,8 @@ class CreateJobCommand:
     location: str | None = None
     salary_min: int | None = None
     salary_max: int | None = None
+    currency: str | None = None
+    salary_period: str | None = None
     technologies: list[str] | None = None
     source_url: str | None = None
     source: str | None = None
@@ -34,10 +36,13 @@ class CreateJobCommandHandler:
             location=command.location,
             salary_min=command.salary_min,
             salary_max=command.salary_max,
+            currency=command.currency,
+            salary_period=command.salary_period,
             technologies=command.technologies,
             source_url=command.source_url,
             source=command.source,
             created_at=datetime.now(timezone.utc),
         )
+        job.validate()
         await self._job_repository.create(job)
         return job
