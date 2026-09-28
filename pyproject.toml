@@ -4,7 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["Mizhik <vlad.mezhinskiy07@gmail.com>"]
 readme = "README.md"
-packages = [{ include = "backend" }]
+packages = [
+    { include = "backend" },
+    { include = "telegram_admin" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -20,6 +23,8 @@ passlib = {extras = ["argon2"], version = "^1.7.4"}
 pydantic = {extras = ["email"], version = "^2.13.4"}
 argon2-cffi = "^25.1.0"
 python-multipart = "^0.0.32"
+python-telegram-bot = "^22.0"
+httpx = "^0.28.0"
 
 
 [tool.poetry.group.test.dependencies]

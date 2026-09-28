@@ -18,6 +18,7 @@ RUN poetry install --only main --no-root
 
 COPY backend ./backend
 COPY migrations ./migrations
+COPY telegram_admin ./telegram_admin
 
 EXPOSE 8000
 

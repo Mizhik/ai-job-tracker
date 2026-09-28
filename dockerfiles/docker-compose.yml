@@ -60,5 +60,25 @@ services:
     profiles:
       - app
 
+  telegram-bot:
+    build:
+      context: ..
+      dockerfile: dockerfiles/Dockerfile
+    environment:
+      POSTGRES_DBNAME: ${POSTGRES_DBNAME}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_ADDRESS: db:5432
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ADMIN_USER_ID: ${TELEGRAM_ADMIN_USER_ID}
+      API_BASE_URL: http://app:8000
+    command:
+      - python
+      - -m
+      - telegram_admin.main
+    restart: unless-stopped
+    profiles:
+      - telegram-bot
+
 volumes:
   postgres_data:
