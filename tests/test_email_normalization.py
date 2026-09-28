@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import datetime, timedelta, timezone
+from uuid import UUID, uuid4
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import ValidationError
 
@@ -15,9 +15,48 @@ from backend.app.auth.commands.login import LoginCommand, LoginCommandHandler
 from backend.app.users.commands.register_user import RegisterUserCommand, RegisterUserCommandHandler
 from backend.app.users.commands.update_user import UpdateUserCommand, UpdateUserCommandHandler
 from backend.core.errors import EmailOrPasswordIncorrectError, UserAlreadyExistsException, UserBlockedError
+from backend.core.repository.user_session_repository import UserSessionRepository
+from backend.core.session import UserSession
 from backend.core.user import User
 from backend.core.utils import normalize_email
 from backend.infrastructure.settings.auth import AuthSettings
+from backend.infrastructure.token.session_token_service import DefaultSessionTokenService
+
+
+class InMemoryUserSessionRepository(UserSessionRepository):
+    def __init__(self):
+        self.sessions: dict[UUID, UserSession] = {}
+
+    async def create(self, session: UserSession) -> None:
+        self.sessions[session.id] = session
+
+    async def get_by_id(self, session_id: UUID) -> UserSession | None:
+        return self.sessions.get(session_id)
+
+    async def rotate_refresh_token(
+        self,
+        session_id: UUID,
+        old_refresh_token_hash: str,
+        new_refresh_token_hash: str,
+    ) -> UserSession | None:
+        session = self.sessions.get(session_id)
+        if not session:
+            return None
+        now = datetime.now(timezone.utc)
+        if session.revoked_at is not None or session.expires_at <= now:
+            return None
+        if session.refresh_token_hash != old_refresh_token_hash:
+            return None
+
+        session.refresh_token_hash = new_refresh_token_hash
+        session.updated_at = now
+        return session
+
+    async def revoke(self, session_id: UUID) -> None:
+        session = self.sessions.get(session_id)
+        if session and session.revoked_at is None:
+            session.revoked_at = datetime.now(timezone.utc)
+            session.updated_at = datetime.now(timezone.utc)
 
 
 class DummyUserRepository:
@@ -54,7 +93,7 @@ class DummyPasswordHasher:
 
 
 class DummyAccessTokenGenerator:
-    def create_access_token(self, email: str, expires_delta=None) -> str:
+    def create_access_token(self, email: str, expires_delta=None, session_id=None) -> str:
         return f"token_for_{email}"
 
 
@@ -62,7 +101,7 @@ class DummyAuthService:
     def __init__(self, login_handler: LoginCommandHandler):
         self._login_handler = login_handler
 
-    async def login(self, command: LoginCommand) -> str:
+    async def login(self, command: LoginCommand):
         return await self._login_handler(command)
 
 
@@ -150,6 +189,8 @@ async def test_login_outcomes_domain():
     repo = DummyUserRepository()
     hasher = DummyPasswordHasher()
     token_gen = DummyAccessTokenGenerator()
+    session_repo = InMemoryUserSessionRepository()
+    session_token_service = DefaultSessionTokenService()
     settings = AuthSettings(
         secret_key="secret",
         algorithm="HS256",
@@ -157,7 +198,14 @@ async def test_login_outcomes_domain():
     )
 
     register_handler = RegisterUserCommandHandler(repo, hasher)
-    login_handler = LoginCommandHandler(token_gen, repo, hasher, settings.access_token_expire_delta)
+    login_handler = LoginCommandHandler(
+        token_gen,
+        repo,
+        hasher,
+        session_repo,
+        session_token_service,
+        settings.access_token_expire_delta,
+    )
 
     await register_handler.handle(
         RegisterUserCommand(
@@ -169,10 +217,10 @@ async def test_login_outcomes_domain():
     )
 
     # Successful login with case/whitespace variations
-    token = await login_handler(
+    result = await login_handler(
         LoginCommand(email="  BOB@EXAMPLE.COM ", password="secretpassword")
     )
-    assert token == "token_for_bob@example.com"
+    assert result.access_token == "token_for_bob@example.com"
 
     # Non-existent user
     with pytest.raises(EmailOrPasswordIncorrectError):
@@ -226,6 +274,8 @@ async def test_api_endpoint_responses():
     repo = DummyUserRepository()
     hasher = DummyPasswordHasher()
     token_gen = DummyAccessTokenGenerator()
+    session_repo = InMemoryUserSessionRepository()
+    session_token_service = DefaultSessionTokenService()
     settings = AuthSettings(
         secret_key="secret",
         algorithm="HS256",
@@ -233,7 +283,14 @@ async def test_api_endpoint_responses():
     )
 
     register_handler = RegisterUserCommandHandler(repo, hasher)
-    login_handler = LoginCommandHandler(token_gen, repo, hasher, settings.access_token_expire_delta)
+    login_handler = LoginCommandHandler(
+        token_gen,
+        repo,
+        hasher,
+        session_repo,
+        session_token_service,
+        settings.access_token_expire_delta,
+    )
     update_handler = UpdateUserCommandHandler(repo)
 
     auth_service = DummyAuthService(login_handler)
@@ -268,7 +325,7 @@ async def test_api_endpoint_responses():
         scope="",
     )
     with pytest.raises(HTTPException) as exc_info_unknown:
-        await login_for_access_token(auth_service=auth_service, form_data=form_unknown)
+        await login_for_access_token(response=Response(), auth_service=auth_service, form_data=form_unknown)
 
     # 4. Wrong password login via endpoint -> HTTP 401 with identical body and WWW-Authenticate header
     form_wrong_pass = OAuth2PasswordRequestForm(
@@ -277,7 +334,7 @@ async def test_api_endpoint_responses():
         scope="",
     )
     with pytest.raises(HTTPException) as exc_info_wrong_pass:
-        await login_for_access_token(auth_service=auth_service, form_data=form_wrong_pass)
+        await login_for_access_token(response=Response(), auth_service=auth_service, form_data=form_wrong_pass)
 
     assert exc_info_unknown.value.status_code == 401
     assert exc_info_wrong_pass.value.status_code == 401
@@ -294,7 +351,7 @@ async def test_api_endpoint_responses():
         scope="",
     )
     with pytest.raises(HTTPException) as exc_info_blocked:
-        await login_for_access_token(auth_service=auth_service, form_data=form_blocked)
+        await login_for_access_token(response=Response(), auth_service=auth_service, form_data=form_blocked)
     assert exc_info_blocked.value.status_code == 403
     assert exc_info_blocked.value.detail == "User is blocked"
 

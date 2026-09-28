@@ -224,6 +224,7 @@ def auth_setup():
     job_repo = InMemoryJobRepository()
 
     container = Container()
+    container.pool.override(MagicMock())
     container.auth_settings.override(settings)
     container.user_repository.override(user_repo)
     container.job_repository.override(job_repo)

@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS resumes;
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS job_matches;
+DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS users;
+DROP TYPE IF EXISTS ApplicationStatus;
+DROP TYPE IF EXISTS NotificationType;

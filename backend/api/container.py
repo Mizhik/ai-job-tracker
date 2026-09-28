@@ -11,16 +11,18 @@ from backend.infrastructure.argon2_password_hasher import Argon2PasswordHasher
 from backend.infrastructure.postgres import create_pool, DBSettings
 from backend.infrastructure.postgres.job_repository import AsyncpgJobRepository
 from backend.infrastructure.postgres.user_repository import AsyncpgUserRepository
+from backend.infrastructure.postgres.user_session_repository import AsyncpgUserSessionRepository
 from backend.infrastructure.settings.auth import AuthSettings
 from backend.infrastructure.token.jwt_token_service import JwtTokenService
+from backend.infrastructure.token.session_token_service import DefaultSessionTokenService
 
 
 async def resource_asyncpg_pool(db_settings: DBSettings) -> AsyncGenerator[Pool, None]:
     pool = await create_pool(db_settings)
-
-    yield pool
-
-    await pool.close()
+    try:
+        yield pool
+    finally:
+        await pool.close()
 
 
 class Container(containers.DeclarativeContainer):
@@ -31,12 +33,14 @@ class Container(containers.DeclarativeContainer):
     pool = providers.Resource(resource_asyncpg_pool, db_settings=db_settings)
 
     user_repository = providers.Singleton(AsyncpgUserRepository, pool)
+    user_session_repository = providers.Singleton(AsyncpgUserSessionRepository, pool)
     job_repository = providers.Singleton(AsyncpgJobRepository, pool)
     password_hasher = providers.Singleton(Argon2PasswordHasher)
     jwt_token_service = providers.Singleton(
         JwtTokenService,
         settings=auth_settings,
     )
+    session_token_service = providers.Singleton(DefaultSessionTokenService)
     oauth2_scheme = providers.Object(oauth2_scheme)
 
     user_service = providers.Singleton(
@@ -53,9 +57,11 @@ class Container(containers.DeclarativeContainer):
     auth_service = providers.Singleton(
         AuthService,
         user_repository=user_repository,
-        access_token_expire_delta=auth_settings.provided.access_token_expire_delta,
-        access_token_generator=jwt_token_service,
         password_hasher=password_hasher,
+        access_token_generator=jwt_token_service,
+        user_session_repository=user_session_repository,
+        session_token_service=session_token_service,
+        access_token_expire_delta=auth_settings.provided.access_token_expire_delta,
     )
 
     get_current_user = providers.Singleton(

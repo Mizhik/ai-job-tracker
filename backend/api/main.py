@@ -4,6 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.infrastructure.settings.auth import AuthSettings
 from .container import Container
 from .endpoints import router as user_router
 from .endpoints.jobs import router as jobs_router
@@ -20,10 +21,23 @@ async def lifespan(app: FastAPI):
     del app.state.container
 
 
+def get_allowed_origins() -> list[str]:
+    try:
+        settings = AuthSettings()
+        origins = settings.allowed_origins
+        return origins if isinstance(origins, list) else [origins]
+    except Exception:
+        return [
+            "http://localhost",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+
+
 def build_app() -> FastAPI:
-    origins = [
-        "http://localhost",
-    ]
+    origins = get_allowed_origins()
 
     app = FastAPI(lifespan=lifespan)
 

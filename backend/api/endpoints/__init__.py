@@ -4,9 +4,11 @@ from backend.api.schemas.auth import AccessTokenResponse
 from backend.api.schemas.user import UserResponse
 
 from .health import health_check
-# from .health_protect import health_check_protected
 from .register_user import register_user as register_user_endpoint
 from .login import login_for_access_token
+from .csrf import get_csrf_token
+from .refresh import refresh_access_token
+from .logout import logout_user
 from .get_user_by_token import get_user_by_token as get_user_by_token_endpoint
 from .update_user import update_user as update_user_endpoint
 from .delete_user import delete_user as delete_user_endpoint
@@ -21,15 +23,6 @@ router.add_api_route(
     endpoint=health_check,
     status_code=200,
 )
-
-# router.add_api_route(
-#     path="/health-protect",
-#     methods={
-#         "GET",
-#     },
-#     endpoint=health_check_protected,
-#     status_code=200,
-# )
 
 router.add_api_route(
     path="/register",
@@ -67,6 +60,34 @@ router.add_api_route(
     },
     endpoint=login_for_access_token,
     response_model=AccessTokenResponse,
+    status_code=200,
+)
+
+router.add_api_route(
+    path="/csrf",
+    methods={
+        "GET",
+    },
+    endpoint=get_csrf_token,
+    status_code=200,
+)
+
+router.add_api_route(
+    path="/refresh",
+    methods={
+        "POST",
+    },
+    endpoint=refresh_access_token,
+    response_model=AccessTokenResponse,
+    status_code=200,
+)
+
+router.add_api_route(
+    path="/logout",
+    methods={
+        "POST",
+    },
+    endpoint=logout_user,
     status_code=200,
 )
 

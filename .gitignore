@@ -1,8 +1,8 @@
 /docs
 *lock
+!poetry.lock
 *ini
 *env
-/migrations
 __pycache__
 .vscode
 /social-content

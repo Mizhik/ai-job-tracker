@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import timedelta
+from uuid import UUID
 
 from backend.core.token import DecodedAccessToken
 
@@ -9,7 +10,8 @@ class AccessTokenGenerator(ABC):
     def create_access_token(
         self,
         email: str,
-        expires_delta: timedelta | None = None
+        expires_delta: timedelta | None = None,
+        session_id: UUID | None = None,
     ) -> str:
         raise NotImplementedError
 

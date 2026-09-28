@@ -1,4 +1,5 @@
 import datetime
+from uuid import UUID
 
 from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import ValidationError
@@ -19,10 +20,13 @@ class JwtTokenService(AccessTokenGenerator):
         self,
         email: str,
         expires_delta: datetime.timedelta | None = None,
+        session_id: UUID | None = None,
     ) -> str:
         to_encode = {
             "sub": str(email),
         }
+        if session_id:
+            to_encode["sid"] = str(session_id)
 
         if expires_delta:
             expire = datetime.datetime.now(datetime.timezone.utc) + expires_delta
@@ -59,7 +63,14 @@ class JwtTokenService(AccessTokenGenerator):
                 exp, tz=datetime.timezone.utc
             )
 
-            return DecodedAccessToken(email=email, expires_at=expires_at)
+            sid_raw = payload.get("sid")
+            session_id = UUID(sid_raw) if sid_raw else None
+
+            return DecodedAccessToken(
+                email=email,
+                expires_at=expires_at,
+                session_id=session_id,
+            )
         except (TokenInvalidError, TokenIsExpiredError):
             raise
         except ExpiredSignatureError:

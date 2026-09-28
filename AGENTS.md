@@ -18,6 +18,7 @@
 
 ## Working with Jules
 
+- Codex delegates substantial code implementation to Jules through the official Jules API. Use the `JULES_API_KEY` environment variable on this computer for authentication; never copy its value into prompts, files, commits, or logs. For small fixes and review changes, use judgment rather than creating a Jules session automatically.
 - Codex defines a narrow task, acceptance criteria, the GitHub source and starting branch, and any necessary context that exists only locally. Never send secrets or local credential files.
 - Create Jules sessions with plan approval required. Codex reviews the plan, requests corrections when needed, and approves a suitable plan before implementation.
 - Jules implements in its isolated session. A completed session may return a change set without creating a branch or pull request; verify the actual output before describing it as published.

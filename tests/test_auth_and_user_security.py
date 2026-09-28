@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
@@ -8,7 +8,6 @@ from jose import jwt
 
 from backend.api.dependencies import ActiveUserDependency, CurrentUserDependency, oauth2_scheme
 from backend.api.endpoints.get_user_by_token import get_user_by_token
-from backend.api.endpoints.jobs.list_jobs import list_jobs
 from backend.api.endpoints.login import login_for_access_token
 from backend.app.auth.commands.login import LoginCommandHandler
 from backend.app.auth.queries.get_user_by_token import GetUserByTokenQuery
@@ -21,10 +20,49 @@ from backend.core.errors import (
     TokenIsExpiredError,
     UserBlockedError,
 )
+from backend.core.repository.user_session_repository import UserSessionRepository
+from backend.core.session import UserSession
 from backend.core.user import User
 from backend.infrastructure.argon2_password_hasher import Argon2PasswordHasher
 from backend.infrastructure.settings.auth import AuthSettings
 from backend.infrastructure.token.jwt_token_service import JwtTokenService
+from backend.infrastructure.token.session_token_service import DefaultSessionTokenService
+
+
+class InMemoryUserSessionRepository(UserSessionRepository):
+    def __init__(self):
+        self.sessions: dict[UUID, UserSession] = {}
+
+    async def create(self, session: UserSession) -> None:
+        self.sessions[session.id] = session
+
+    async def get_by_id(self, session_id: UUID) -> UserSession | None:
+        return self.sessions.get(session_id)
+
+    async def rotate_refresh_token(
+        self,
+        session_id: UUID,
+        old_refresh_token_hash: str,
+        new_refresh_token_hash: str,
+    ) -> UserSession | None:
+        session = self.sessions.get(session_id)
+        if not session:
+            return None
+        now = datetime.now(timezone.utc)
+        if session.revoked_at is not None or session.expires_at <= now:
+            return None
+        if session.refresh_token_hash != old_refresh_token_hash:
+            return None
+
+        session.refresh_token_hash = new_refresh_token_hash
+        session.updated_at = now
+        return session
+
+    async def revoke(self, session_id: UUID) -> None:
+        session = self.sessions.get(session_id)
+        if session and session.revoked_at is None:
+            session.revoked_at = datetime.now(timezone.utc)
+            session.updated_at = datetime.now(timezone.utc)
 
 
 class MockUserRepository:
@@ -184,10 +222,15 @@ def test_app_and_repo(jwt_service, auth_settings):
         }
     )
 
+    session_repo = InMemoryUserSessionRepository()
+    session_token_service = DefaultSessionTokenService()
+
     auth_service = AuthService(
         user_repository=repo,
         password_hasher=hasher,
         access_token_generator=jwt_service,
+        user_session_repository=session_repo,
+        session_token_service=session_token_service,
         access_token_expire_delta=auth_settings.access_token_expire_delta,
     )
 
@@ -197,11 +240,11 @@ def test_app_and_repo(jwt_service, auth_settings):
     app.add_api_route("/users/me", get_user_by_token, methods=["GET"])
     app.include_router(jobs_router)
 
-    return app, repo, jwt_service, auth_settings
+    return app, repo, jwt_service, auth_settings, session_repo, session_token_service
 
 
 def test_missing_bearer_token_returns_401(test_app_and_repo):
-    app, _, _, _ = test_app_and_repo
+    app, _, _, _, _, _ = test_app_and_repo
     client = TestClient(app)
 
     res_me = client.get("/users/me")
@@ -214,7 +257,7 @@ def test_missing_bearer_token_returns_401(test_app_and_repo):
 
 
 def test_malformed_token_returns_401(test_app_and_repo):
-    app, _, _, _ = test_app_and_repo
+    app, _, _, _, _, _ = test_app_and_repo
     client = TestClient(app)
 
     headers = {"Authorization": "Bearer not-a-valid-jwt"}
@@ -224,7 +267,7 @@ def test_malformed_token_returns_401(test_app_and_repo):
 
 
 def test_token_missing_subject_returns_401(test_app_and_repo):
-    app, _, _, auth_settings = test_app_and_repo
+    app, _, _, auth_settings, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt.encode(
@@ -238,7 +281,7 @@ def test_token_missing_subject_returns_401(test_app_and_repo):
 
 
 def test_token_invalid_email_claim_returns_401(test_app_and_repo):
-    app, _, _, auth_settings = test_app_and_repo
+    app, _, _, auth_settings, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt.encode(
@@ -255,7 +298,7 @@ def test_token_invalid_email_claim_returns_401(test_app_and_repo):
 
 
 def test_token_malformed_exp_returns_401(test_app_and_repo):
-    app, _, _, auth_settings = test_app_and_repo
+    app, _, _, auth_settings, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt.encode(
@@ -269,7 +312,7 @@ def test_token_malformed_exp_returns_401(test_app_and_repo):
 
 
 def test_expired_token_returns_401(test_app_and_repo):
-    app, _, _, auth_settings = test_app_and_repo
+    app, _, _, auth_settings, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt.encode(
@@ -286,7 +329,7 @@ def test_expired_token_returns_401(test_app_and_repo):
 
 
 def test_token_deleted_user_returns_401(test_app_and_repo):
-    app, _, jwt_service, _ = test_app_and_repo
+    app, _, jwt_service, _, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt_service.create_access_token(email="nonexistent@example.com")
@@ -296,7 +339,7 @@ def test_token_deleted_user_returns_401(test_app_and_repo):
 
 
 def test_inactive_user_returns_403(test_app_and_repo):
-    app, _, jwt_service, _ = test_app_and_repo
+    app, _, jwt_service, _, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt_service.create_access_token(email="inactive@example.com")
@@ -311,7 +354,7 @@ def test_inactive_user_returns_403(test_app_and_repo):
 
 
 def test_active_user_returns_200(test_app_and_repo):
-    app, _, jwt_service, _ = test_app_and_repo
+    app, _, jwt_service, _, _, _ = test_app_and_repo
     client = TestClient(app)
 
     token = jwt_service.create_access_token(email="active@example.com")
@@ -323,7 +366,7 @@ def test_active_user_returns_200(test_app_and_repo):
 
 @pytest.mark.asyncio
 async def test_login_and_error_handling(test_app_and_repo):
-    app, repo, jwt_service, auth_settings = test_app_and_repo
+    app, repo, jwt_service, auth_settings, session_repo, session_token_service = test_app_and_repo
     hasher = Argon2PasswordHasher()
 
     # LoginCommandHandler with wrong password -> EmailOrPasswordIncorrectError
@@ -331,6 +374,8 @@ async def test_login_and_error_handling(test_app_and_repo):
         access_token_generator=jwt_service,
         user_repository=repo,
         password_hasher=hasher,
+        user_session_repository=session_repo,
+        session_token_service=session_token_service,
         expires_delta=auth_settings.access_token_expire_delta,
     )
 
