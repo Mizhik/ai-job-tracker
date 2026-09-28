@@ -1,6 +1,4 @@
 /docs
-*lock
-!poetry.lock
 *ini
 *env
 __pycache__
