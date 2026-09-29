@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getJobs } from '../api/jobs';
 import { JobResponse } from '../api/types';
+import { CreateJobForm } from '../components/CreateJobForm';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { JobDetailView } from '../components/JobDetailView';
@@ -9,10 +10,12 @@ import { formatDate, formatSalary } from '../utils/formatters';
 
 export const JobsView: React.FC = () => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
 
   const [searchInput, setSearchInput] = useState<string>('');
   const [activeQuery, setActiveQuery] = useState<string>('');
   const [offset, setOffset] = useState<number>(0);
+  const [listRevision, setListRevision] = useState<number>(0);
   const limit = 20;
 
   const [jobs, setJobs] = useState<JobResponse[]>([]);
@@ -44,7 +47,7 @@ export const JobsView: React.FC = () => {
         setIsLoading(false);
       }
     }
-  }, [activeQuery, offset]);
+  }, [activeQuery, offset, listRevision]);
 
   useEffect(() => {
     fetchJobsList();
@@ -63,6 +66,15 @@ export const JobsView: React.FC = () => {
     setSearchInput('');
     setActiveQuery('');
     setOffset(0);
+  };
+
+  const handleCreateSuccess = (createdJob: JobResponse) => {
+    setSearchInput('');
+    setActiveQuery('');
+    setOffset(0);
+    setListRevision((revision) => revision + 1);
+    setIsCreating(false);
+    setSelectedJobId(createdJob.id);
   };
 
   const totalPages = Math.ceil(total / limit) || 1;
@@ -89,8 +101,30 @@ export const JobsView: React.FC = () => {
     );
   }
 
+  if (isCreating) {
+    return (
+      <section className="jobs-view-container" aria-label="Створення вакансії">
+        <CreateJobForm
+          onSuccess={handleCreateSuccess}
+          onCancel={() => setIsCreating(false)}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="jobs-view-container" aria-label="Збережені вакансії">
+      <div className="jobs-header-actions">
+        <h2 className="jobs-view-title">Збережені вакансії</h2>
+        <button
+          type="button"
+          className="btn-primary create-job-btn"
+          onClick={() => setIsCreating(true)}
+        >
+          + Додати вакансію
+        </button>
+      </div>
+
       <div className="jobs-search-section">
         <form className="search-form" onSubmit={handleSearchSubmit}>
           <div className="search-input-wrapper">
@@ -148,7 +182,9 @@ export const JobsView: React.FC = () => {
         ) : (
           <EmptyState
             title="Немає збережених вакансій"
-            description="У вас ще немає збережених вакансій. Збережені вакансії з'являться тут."
+            description="У вас ще немає збережених вакансій. Додайте першу вакансію, щоб розпочати відстеження."
+            actionLabel="Додати вакансію"
+            onAction={() => setIsCreating(true)}
           />
         )
       ) : (

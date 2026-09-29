@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { FetchJobsParams, JobListResponse, JobResponse } from './types';
+import { CreateJobPayload, FetchJobsParams, JobListResponse, JobResponse } from './types';
 
 export async function getJobs(params: FetchJobsParams = {}): Promise<JobListResponse> {
   const query = new URLSearchParams();
@@ -22,4 +22,14 @@ export async function getJobs(params: FetchJobsParams = {}): Promise<JobListResp
 
 export async function getJobById(jobId: string): Promise<JobResponse> {
   return apiClient.request<JobResponse>(`/jobs/${jobId}`);
+}
+
+export async function createJob(payload: CreateJobPayload): Promise<JobResponse> {
+  return apiClient.request<JobResponse>('/jobs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 }

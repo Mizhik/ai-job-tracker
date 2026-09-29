@@ -78,3 +78,17 @@ export interface FetchJobsParams {
   limit?: number;
   offset?: number;
 }
+
+export interface CreateJobPayload {
+  title: string;
+  company: string;
+  description?: string | null;
+  location?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  currency?: string | null;
+  salary_period?: string | null;
+  technologies?: string[] | null;
+  source_url?: string | null;
+  source?: string | null;
+}
