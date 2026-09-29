@@ -1,8 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
-export const LoginForm: React.FC = () => {
-  const handleSubmit = (e: React.FormEvent) => {
+interface LoginFormProps {
+  onSuccess?: () => void;
+  onSwitchToRegister?: () => void;
+}
+
+export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToRegister }) => {
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    if (!email.trim() || !password) {
+      setError('Заповніть всі обов’язкові поля');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await login({ email: email.trim(), password });
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Помилка при вході у систему');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -12,7 +42,13 @@ export const LoginForm: React.FC = () => {
         Увійдіть до свого облікового запису AI Job Tracker
       </p>
 
-      <form onSubmit={handleSubmit}>
+      {error && (
+        <div className="form-error-alert" role="alert">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate>
         <div className="form-group">
           <label htmlFor="email" className="form-label">
             Електронна пошта
@@ -23,7 +59,10 @@ export const LoginForm: React.FC = () => {
             name="email"
             className="form-input"
             placeholder="name@example.com"
-            disabled
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isSubmitting}
+            required
           />
         </div>
 
@@ -37,14 +76,26 @@ export const LoginForm: React.FC = () => {
             name="password"
             className="form-input"
             placeholder="••••••••"
-            disabled
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isSubmitting}
+            required
           />
         </div>
 
-        <button type="submit" className="btn-primary" disabled>
-          Увійти (попередній перегляд)
+        <button type="submit" className="btn-primary" disabled={isSubmitting}>
+          {isSubmitting ? 'Вхід...' : 'Увійти'}
         </button>
       </form>
+
+      {onSwitchToRegister && (
+        <div className="form-footer-switch">
+          <span>Немає облікового запису? </span>
+          <button type="button" className="btn-link" onClick={onSwitchToRegister} disabled={isSubmitting}>
+            Зареєструватися
+          </button>
+        </div>
+      )}
     </div>
   );
 };
