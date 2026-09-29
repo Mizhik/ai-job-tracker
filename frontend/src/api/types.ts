@@ -47,3 +47,34 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+
+export interface JobResponse {
+  id: string;
+  title: string;
+  company: string;
+  description?: string | null;
+  location?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  currency?: string | null;
+  salary_period?: string | null;
+  technologies?: string[] | null;
+  source_url?: string | null;
+  source?: string | null;
+  application?: null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface JobListResponse {
+  items: JobResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface FetchJobsParams {
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
