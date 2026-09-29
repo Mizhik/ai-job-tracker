@@ -33,16 +33,13 @@ services:
       - sh
       - -c
       - yoyo apply --batch --migration-table yoyo_migration --database "postgresql://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@db:5432/$${POSTGRES_DBNAME}" migrations
-    profiles:
-      - migrate
-
   app:
     build:
       context: ..
       dockerfile: dockerfiles/Dockerfile
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       POSTGRES_DBNAME: ${POSTGRES_DBNAME}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -57,13 +54,25 @@ services:
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
     ports:
       - "${APP_PORT:-8000}:8000"
-    profiles:
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    depends_on:
       - app
+    environment:
+      VITE_BACKEND_TARGET: http://app:8000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
 
   telegram-bot:
     build:
       context: ..
       dockerfile: dockerfiles/Dockerfile
+    depends_on:
+      app:
+        condition: service_started
     environment:
       POSTGRES_DBNAME: ${POSTGRES_DBNAME}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -77,8 +86,6 @@ services:
       - -m
       - telegram_admin.main
     restart: unless-stopped
-    profiles:
-      - telegram-bot
 
 volumes:
   postgres_data:
