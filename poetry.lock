@@ -974,6 +974,32 @@ files = [
 ]
 
 [[package]]
+name = "python-telegram-bot"
+version = "22.8"
+description = "We have made you a wrapper you can't refuse"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "python_telegram_bot-22.8-py3-none-any.whl", hash = "sha256:42373918097f1b837cc4e717d588c19ea79651497ec712bb5b0c76e5e63c50e1"},
+    {file = "python_telegram_bot-22.8.tar.gz", hash = "sha256:f9d3847fcb23ee603477e442800b33bb4adf851a73e0619d2050be879decf1ef"},
+]
+
+[package.dependencies]
+httpcore = {version = ">=1.0.9", markers = "python_version >= \"3.14\""}
+httpx = ">=0.27,<0.29"
+
+[package.extras]
+all = ["aiolimiter (>=1.1,<1.3)", "apscheduler (>=3.10.4,<3.12.0)", "cachetools (>=7.0.0,<8.0.0)", "cffi (>=1.17.0rc1)", "cryptography (>=39.0.1)", "httpx[http2]", "httpx[socks]", "tornado (>=6.5,<7.0)"]
+callback-data = ["cachetools (>=7.0.0,<8.0.0)"]
+ext = ["aiolimiter (>=1.1,<1.3)", "apscheduler (>=3.10.4,<3.12.0)", "cachetools (>=7.0.0,<8.0.0)", "tornado (>=6.5,<7.0)"]
+http2 = ["httpx[http2]"]
+job-queue = ["apscheduler (>=3.10.4,<3.12.0)"]
+passport = ["cffi (>=1.17.0rc1)", "cryptography (>=39.0.1)"]
+rate-limiter = ["aiolimiter (>=1.1,<1.3)"]
+socks = ["httpx[socks]"]
+webhooks = ["tornado (>=6.5,<7.0)"]
+
+[[package]]
 name = "rsa"
 version = "4.9.1"
 description = "Pure-Python RSA implementation"
@@ -1130,4 +1156,4 @@ type = ["pytest-mypy (>=1.0.1)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "01b4bced74c8918ba7b3b82fbb9190559fccdcacb9c182bfc407324fd515ff19"
+content-hash = "25ef9572b5f4fa54befd9662541ed26fd096fe537b7c906e69b3a318c7de4f63"
