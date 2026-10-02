@@ -1,5 +1,11 @@
 import { apiClient } from './client';
-import { CreateJobPayload, FetchJobsParams, JobListResponse, JobResponse } from './types';
+import {
+  CreateJobPayload,
+  FetchJobsParams,
+  ImportPreviewResponse,
+  JobListResponse,
+  JobResponse,
+} from './types';
 
 export async function getJobs(params: FetchJobsParams = {}): Promise<JobListResponse> {
   const query = new URLSearchParams();
@@ -31,5 +37,15 @@ export async function createJob(payload: CreateJobPayload): Promise<JobResponse>
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function importJobPreview(url: string): Promise<ImportPreviewResponse> {
+  return apiClient.request<ImportPreviewResponse>('/jobs/import-preview', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ url }),
   });
 }

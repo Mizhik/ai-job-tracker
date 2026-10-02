@@ -92,3 +92,28 @@ export interface CreateJobPayload {
   source_url?: string | null;
   source?: string | null;
 }
+
+export interface JobImportFields {
+  title?: string | null;
+  company?: string | null;
+  description?: string | null;
+  location?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  currency?: string | null;
+  salary_period?: 'hour' | 'month' | 'year' | null;
+  technologies?: string[] | null;
+  source?: string | null;
+}
+
+export interface ImportPreviewRequest {
+  url: string;
+}
+
+export interface ImportPreviewResponse {
+  status: 'complete' | 'partial' | 'unavailable';
+  source_url: string;
+  fields: JobImportFields;
+  reason_code?: string | null;
+  message?: string | null;
+}

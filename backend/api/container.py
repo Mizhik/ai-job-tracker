@@ -5,14 +5,17 @@ from asyncpg import Pool
 
 from backend.api.dependencies import ActiveUserDependency, CurrentUserDependency, oauth2_scheme
 from backend.app.auth.service import AuthService
+from backend.app.jobs.commands.import_job_preview import ImportJobPreviewUseCase
 from backend.app.jobs.service import JobService
 from backend.app.users.service import UserService
 from backend.infrastructure.argon2_password_hasher import Argon2PasswordHasher
+from backend.infrastructure.gemini_client import GeminiClient
 from backend.infrastructure.postgres import create_pool, DBSettings
 from backend.infrastructure.postgres.job_repository import AsyncpgJobRepository
 from backend.infrastructure.postgres.user_repository import AsyncpgUserRepository
 from backend.infrastructure.postgres.user_session_repository import AsyncpgUserSessionRepository
 from backend.infrastructure.settings.auth import AuthSettings
+from backend.infrastructure.settings.gemini import GeminiSettings
 from backend.infrastructure.token.jwt_token_service import JwtTokenService
 from backend.infrastructure.token.session_token_service import DefaultSessionTokenService
 
@@ -30,6 +33,7 @@ class Container(containers.DeclarativeContainer):
 
     db_settings = providers.Singleton(DBSettings)
     auth_settings = providers.Singleton(AuthSettings)
+    gemini_settings = providers.Singleton(GeminiSettings)
     pool = providers.Resource(resource_asyncpg_pool, db_settings=db_settings)
 
     user_repository = providers.Singleton(AsyncpgUserRepository, pool)
@@ -42,6 +46,16 @@ class Container(containers.DeclarativeContainer):
     )
     session_token_service = providers.Singleton(DefaultSessionTokenService)
     oauth2_scheme = providers.Object(oauth2_scheme)
+
+    job_url_extractor = providers.Singleton(
+        GeminiClient,
+        settings=gemini_settings,
+    )
+
+    import_job_preview_use_case = providers.Singleton(
+        ImportJobPreviewUseCase,
+        extractor=job_url_extractor,
+    )
 
     user_service = providers.Singleton(
         UserService,

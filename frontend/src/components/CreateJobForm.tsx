@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { createJob } from '../api/jobs';
+import React, { useRef, useState } from 'react';
+import { createJob, importJobPreview } from '../api/jobs';
 import { JobResponse } from '../api/types';
 
 interface CreateJobFormProps {
@@ -20,12 +20,107 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
   const [technologies, setTechnologies] = useState('');
   const [description, setDescription] = useState('');
 
+  // Track if user explicitly modified defaults for currency or salary period
+  const isCurrencyTouchedRef = useRef(false);
+  const isSalaryPeriodTouchedRef = useRef(false);
+
   const [error, setError] = useState<string | null>(null);
+  const [infoNotice, setInfoNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
+  const handleImportPreview = async () => {
+    setError(null);
+    setInfoNotice(null);
+
+    const urlToFetch = sourceUrl.trim();
+    if (!urlToFetch) {
+      setError('Вкажіть посилання на вакансію для автоматичного заповнення');
+      return;
+    }
+
+    try {
+      const parsed = new URL(urlToFetch);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        setError('Посилання на вакансію повинно починатися з http:// або https://');
+        return;
+      }
+    } catch {
+      setError('Вкажіть коректне посилання на вакансію (http:// або https://)');
+      return;
+    }
+
+    if (isPreviewLoading || isSubmitting) return;
+
+    setIsPreviewLoading(true);
+
+    try {
+      const result = await importJobPreview(urlToFetch);
+
+      if (result.status === 'unavailable') {
+        let msg = 'Не вдалося автоматично прочитати вакансію з посилання. Заповніть форму вручну.';
+        if (result.reason_code === 'access_denied') {
+          msg = 'Сайт обмежив автоматичний доступ. Будь ласка, заповніть форму вручну.';
+        } else if (result.reason_code === 'provider_unavailable') {
+          msg = 'Сервіс автоматичного аналізу тимчасово недоступний. Заповніть форму вручну.';
+        } else if (result.message) {
+          msg = `Автоматичне читання недоступне: ${result.message}. Заповніть форму вручну.`;
+        }
+        setError(msg);
+      } else {
+        const fields = result.fields;
+
+        // Populate only empty/untouched fields. Pre-existing user values are strictly preserved.
+        if (fields.title) {
+          setTitle((prev) => (prev.trim() === '' ? fields.title! : prev));
+        }
+        if (fields.company) {
+          setCompany((prev) => (prev.trim() === '' ? fields.company! : prev));
+        }
+        if (fields.location) {
+          setLocation((prev) => (prev.trim() === '' ? fields.location! : prev));
+        }
+        if (fields.source) {
+          setSource((prev) => (prev.trim() === '' ? fields.source! : prev));
+        }
+        if (fields.salary_min !== null && fields.salary_min !== undefined) {
+          setSalaryMin((prev) => (prev.trim() === '' ? fields.salary_min!.toString() : prev));
+        }
+        if (fields.salary_max !== null && fields.salary_max !== undefined) {
+          setSalaryMax((prev) => (prev.trim() === '' ? fields.salary_max!.toString() : prev));
+        }
+        if (fields.currency) {
+          setCurrency((prev) => (!isCurrencyTouchedRef.current ? fields.currency! : prev));
+        }
+        if (fields.salary_period) {
+          setSalaryPeriod((prev) => (!isSalaryPeriodTouchedRef.current ? fields.salary_period! : prev));
+        }
+        if (fields.technologies && fields.technologies.length > 0) {
+          setTechnologies((prev) =>
+            prev.trim() === '' ? fields.technologies!.join(', ') : prev
+          );
+        }
+        if (fields.description) {
+          setDescription((prev) => (prev.trim() === '' ? fields.description! : prev));
+        }
+
+        if (result.status === 'complete') {
+          setInfoNotice('Дані вакансії автоматично витягнуто з посилання. Перевірте їх перед збереженням.');
+        } else {
+          setInfoNotice('Частину даних заповнено з посилання. Будь ласка, перевірте та доповніть обов’язкові поля.');
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Помилка під час зчитування вакансії за посиланням.');
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfoNotice(null);
 
     // Title validation
     const trimmedTitle = title.trim();
@@ -143,8 +238,14 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
     <div className="form-card create-job-card">
       <h2 className="form-title">Додати нову вакансію</h2>
       <p className="form-description">
-        Заповніть інформацію про вакансію для збереження в трекері.
+        Заповніть інформацію про вакансію вручну або вставте посилання для автоматичного заповнення.
       </p>
+
+      {infoNotice && (
+        <div style={{ padding: '0.75rem 1rem', marginBottom: '1rem', borderRadius: '4px', backgroundColor: '#eef6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          {infoNotice}
+        </div>
+      )}
 
       {error && (
         <div className="form-error-alert" role="alert">
@@ -153,6 +254,33 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
       )}
 
       <form onSubmit={handleSubmit} noValidate>
+        <div className="form-group">
+          <label htmlFor="job-source-url" className="form-label">
+            Посилання на вакансію
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              id="job-source-url"
+              type="url"
+              className="form-input"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder="https://example.com/jobs/123"
+              disabled={isSubmitting || isPreviewLoading}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleImportPreview}
+              disabled={isSubmitting || isPreviewLoading || !sourceUrl.trim()}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {isPreviewLoading ? 'Зчитування...' : 'Заповнити з посилання'}
+            </button>
+          </div>
+        </div>
+
         <div className="form-group">
           <label htmlFor="job-title" className="form-label">
             Назва вакансії <span className="required-star">*</span>
@@ -164,7 +292,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="напр. Senior Python Engineer"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPreviewLoading}
             required
           />
         </div>
@@ -180,7 +308,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
             value={company}
             onChange={(e) => setCompany(e.target.value)}
             placeholder="напр. Tech Solutions Inc."
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPreviewLoading}
             required
           />
         </div>
@@ -197,7 +325,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="напр. Київ / Віддалено"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPreviewLoading}
             />
           </div>
 
@@ -212,24 +340,9 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
               value={source}
               onChange={(e) => setSource(e.target.value)}
               placeholder="напр. Djinni, DOU, LinkedIn"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPreviewLoading}
             />
           </div>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="job-source-url" className="form-label">
-            Посилання на вакансію
-          </label>
-          <input
-            id="job-source-url"
-            type="url"
-            className="form-input"
-            value={sourceUrl}
-            onChange={(e) => setSourceUrl(e.target.value)}
-            placeholder="https://example.com/jobs/123"
-            disabled={isSubmitting}
-          />
         </div>
 
         <div className="form-row">
@@ -246,7 +359,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
               value={salaryMin}
               onChange={(e) => setSalaryMin(e.target.value)}
               placeholder="3000"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPreviewLoading}
             />
           </div>
 
@@ -263,7 +376,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
               value={salaryMax}
               onChange={(e) => setSalaryMax(e.target.value)}
               placeholder="5000"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPreviewLoading}
             />
           </div>
         </div>
@@ -278,10 +391,13 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
               type="text"
               className="form-input"
               value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setCurrency(e.target.value.toUpperCase());
+                isCurrencyTouchedRef.current = true;
+              }}
               placeholder="USD, EUR, UAH"
               maxLength={3}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isPreviewLoading}
             />
           </div>
 
@@ -293,8 +409,11 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
               id="job-salary-period"
               className="form-input"
               value={salaryPeriod}
-              onChange={(e) => setSalaryPeriod(e.target.value)}
-              disabled={isSubmitting}
+              onChange={(e) => {
+                setSalaryPeriod(e.target.value);
+                isSalaryPeriodTouchedRef.current = true;
+              }}
+              disabled={isSubmitting || isPreviewLoading}
             >
               <option value="month">За місяць</option>
               <option value="hour">За годину</option>
@@ -314,7 +433,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
             value={technologies}
             onChange={(e) => setTechnologies(e.target.value)}
             placeholder="Python, FastAPI, React, PostgreSQL"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPreviewLoading}
           />
         </div>
 
@@ -329,7 +448,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Введіть ключові вимоги та опис вакансії..."
             rows={4}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPreviewLoading}
           />
         </div>
 
@@ -337,7 +456,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
           <button
             type="submit"
             className="btn-primary"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPreviewLoading}
           >
             {isSubmitting ? 'Збереження...' : 'Зберегти вакансію'}
           </button>
@@ -345,7 +464,7 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
             type="button"
             className="btn-secondary"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isPreviewLoading}
           >
             Скасувати
           </button>
