@@ -2,6 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from asyncpg import Pool
 
+from backend.core.application import ApplicationStatus, ApplicationSummary
 from backend.core.job import Job
 from backend.core.repository.job_repository import JobRepository
 
@@ -44,58 +45,110 @@ class AsyncpgJobRepository(JobRepository):
 
     async def get_by_id(self, job_id: UUID, user_id: UUID) -> Job | None:
         query = """
-            SELECT *
-            FROM jobs
-            WHERE id = $1::UUID AND user_id = $2::UUID
+            SELECT
+                j.id, j.user_id, j.title, j.company, j.description, j.location,
+                j.salary_min, j.salary_max, j.currency, j.salary_period,
+                j.technologies, j.source_url, j.source, j.created_at, j.updated_at,
+                a.id AS app_id,
+                a.status AS app_status,
+                a.applied_at AS app_applied_at
+            FROM jobs j
+            LEFT JOIN applications a ON j.id = a.job_id AND j.user_id = a.user_id
+            WHERE j.id = $1::UUID AND j.user_id = $2::UUID
         """
         row = await self._pool.fetchrow(query, job_id, user_id)
         if row:
-            return Job(**dict(row))
+            data = dict(row)
+            app_id = data.pop("app_id", None)
+            app_status = data.pop("app_status", None)
+            app_applied_at = data.pop("app_applied_at", None)
+
+            application_summary = None
+            if app_id is not None and app_status is not None and app_applied_at is not None:
+                application_summary = ApplicationSummary(
+                    id=app_id,
+                    status=ApplicationStatus(app_status),
+                    applied_at=app_applied_at,
+                )
+
+            return Job(**data, application=application_summary)
         return None
 
     async def list_and_count(
         self,
         user_id: UUID,
         q: str | None = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Job], int]:
+        where_conditions = ["j.user_id = $1::UUID"]
+        params: list[object] = [user_id]
+        param_idx = 2
+
         if q and q.strip():
             escaped_q = _escape_like_pattern(q.strip())
             pattern = f"%{escaped_q}%"
-            count_query = """
-                SELECT COUNT(*)
-                FROM jobs
-                WHERE user_id = $1::UUID
-                  AND (title ILIKE $2 ESCAPE '\\' OR company ILIKE $2 ESCAPE '\\')
-            """
-            items_query = """
-                SELECT *
-                FROM jobs
-                WHERE user_id = $1::UUID
-                  AND (title ILIKE $2 ESCAPE '\\' OR company ILIKE $2 ESCAPE '\\')
-                ORDER BY created_at DESC, id DESC
-                LIMIT $3 OFFSET $4
-            """
-            total = await self._pool.fetchval(count_query, user_id, pattern)
-            rows = await self._pool.fetch(items_query, user_id, pattern, limit, offset)
-        else:
-            count_query = """
-                SELECT COUNT(*)
-                FROM jobs
-                WHERE user_id = $1::UUID
-            """
-            items_query = """
-                SELECT *
-                FROM jobs
-                WHERE user_id = $1::UUID
-                ORDER BY created_at DESC, id DESC
-                LIMIT $2 OFFSET $3
-            """
-            total = await self._pool.fetchval(count_query, user_id)
-            rows = await self._pool.fetch(items_query, user_id, limit, offset)
+            where_conditions.append(
+                f"(j.title ILIKE ${param_idx} ESCAPE '\\' OR j.company ILIKE ${param_idx} ESCAPE '\\')"
+            )
+            params.append(pattern)
+            param_idx += 1
 
-        return [Job(**dict(row)) for row in rows], int(total or 0)
+        if status and status.strip():
+            st_clean = status.strip().lower()
+            if st_clean == "saved":
+                where_conditions.append("a.id IS NULL")
+            else:
+                where_conditions.append(f"a.status = ${param_idx}")
+                params.append(st_clean)
+                param_idx += 1
+
+        where_clause = " WHERE " + " AND ".join(where_conditions)
+
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM jobs j
+            LEFT JOIN applications a ON j.id = a.job_id AND j.user_id = a.user_id
+            {where_clause}
+        """
+        total = await self._pool.fetchval(count_query, *params)
+
+        items_query = f"""
+            SELECT
+                j.id, j.user_id, j.title, j.company, j.description, j.location,
+                j.salary_min, j.salary_max, j.currency, j.salary_period,
+                j.technologies, j.source_url, j.source, j.created_at, j.updated_at,
+                a.id AS app_id,
+                a.status AS app_status,
+                a.applied_at AS app_applied_at
+            FROM jobs j
+            LEFT JOIN applications a ON j.id = a.job_id AND j.user_id = a.user_id
+            {where_clause}
+            ORDER BY j.created_at DESC, j.id DESC
+            LIMIT ${param_idx} OFFSET ${param_idx + 1}
+        """
+        items_params = params + [limit, offset]
+        rows = await self._pool.fetch(items_query, *items_params)
+
+        jobs: list[Job] = []
+        for row in rows:
+            data = dict(row)
+            app_id = data.pop("app_id", None)
+            app_status = data.pop("app_status", None)
+            app_applied_at = data.pop("app_applied_at", None)
+
+            application_summary = None
+            if app_id is not None and app_status is not None and app_applied_at is not None:
+                application_summary = ApplicationSummary(
+                    id=app_id,
+                    status=ApplicationStatus(app_status),
+                    applied_at=app_applied_at,
+                )
+
+            jobs.append(Job(**data, application=application_summary))
+
+        return jobs, int(total or 0)
 
     async def update(self, job: Job) -> bool:
         query = """

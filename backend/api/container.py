@@ -4,6 +4,7 @@ from dependency_injector import containers, providers
 from asyncpg import Pool
 
 from backend.api.dependencies import ActiveUserDependency, CurrentUserDependency, oauth2_scheme
+from backend.app.applications.service import ApplicationService
 from backend.app.auth.service import AuthService
 from backend.app.jobs.commands.import_job_preview import ImportJobPreviewUseCase
 from backend.app.jobs.service import JobService
@@ -11,6 +12,7 @@ from backend.app.users.service import UserService
 from backend.infrastructure.argon2_password_hasher import Argon2PasswordHasher
 from backend.infrastructure.gemini_client import GeminiClient
 from backend.infrastructure.postgres import create_pool, DBSettings
+from backend.infrastructure.postgres.application_repository import AsyncpgApplicationRepository
 from backend.infrastructure.postgres.job_repository import AsyncpgJobRepository
 from backend.infrastructure.postgres.user_repository import AsyncpgUserRepository
 from backend.infrastructure.postgres.user_session_repository import AsyncpgUserSessionRepository
@@ -39,6 +41,7 @@ class Container(containers.DeclarativeContainer):
     user_repository = providers.Singleton(AsyncpgUserRepository, pool)
     user_session_repository = providers.Singleton(AsyncpgUserSessionRepository, pool)
     job_repository = providers.Singleton(AsyncpgJobRepository, pool)
+    application_repository = providers.Singleton(AsyncpgApplicationRepository, pool)
     password_hasher = providers.Singleton(Argon2PasswordHasher)
     jwt_token_service = providers.Singleton(
         JwtTokenService,
@@ -65,6 +68,12 @@ class Container(containers.DeclarativeContainer):
 
     job_service = providers.Singleton(
         JobService,
+        job_repository=job_repository,
+    )
+
+    application_service = providers.Singleton(
+        ApplicationService,
+        application_repository=application_repository,
         job_repository=job_repository,
     )
 

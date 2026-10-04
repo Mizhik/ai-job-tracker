@@ -43,6 +43,7 @@ class InMemoryJobRepository(JobRepository):
         self,
         user_id: UUID,
         q: str | None = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Job], int]:
@@ -55,6 +56,16 @@ class InMemoryJobRepository(JobRepository):
             ]
         else:
             filtered = user_jobs
+
+        if status and status.strip():
+            st_term = status.strip().lower()
+            if st_term == "saved":
+                filtered = [j for j in filtered if j.application is None]
+            else:
+                filtered = [
+                    j for j in filtered
+                    if j.application is not None and j.application.status == st_term
+                ]
 
         filtered.sort(key=lambda j: (j.created_at, j.id), reverse=True)
         total = len(filtered)
@@ -482,7 +493,7 @@ async def test_asyncpg_job_repository_sql():
     assert count_args[2] == "%100\\%\\_test%"
 
     fetch_args = mock_pool.fetch.call_args[0]
-    assert "ORDER BY created_at DESC, id DESC" in fetch_args[0]
+    assert "ORDER BY j.created_at DESC, j.id DESC" in fetch_args[0]
     assert "LIMIT $3 OFFSET $4" in fetch_args[0]
     assert fetch_args[3] == 5
     assert fetch_args[4] == 20

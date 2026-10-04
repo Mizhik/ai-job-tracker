@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.infrastructure.settings.auth import AuthSettings
 from .container import Container
 from .endpoints import router as user_router
+from .endpoints.applications import router as applications_router
 from .endpoints.jobs import router as jobs_router
 
 
@@ -52,6 +53,7 @@ def build_app() -> FastAPI:
     for prefix, router in (
         ("", user_router),
         ("", jobs_router),
+        ("", applications_router),
     ):
         app.include_router(router=router, prefix=prefix)
 

@@ -3,6 +3,7 @@ import re
 from urllib.parse import urlparse
 from uuid import UUID
 
+from .application import ApplicationSummary
 from .base import Base
 from .errors import InvalidJobDataError
 
@@ -21,6 +22,7 @@ class Job(Base):
     technologies: list[str] | None = None
     source_url: str | None = None
     source: str | None = None
+    application: ApplicationSummary | None = None
 
     def validate(self) -> None:
         if not self.title or not self.title.strip():

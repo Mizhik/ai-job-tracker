@@ -21,6 +21,7 @@ class JobRepository(ABC):
         self,
         user_id: UUID,
         q: str | None = None,
+        status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[Job], int]:

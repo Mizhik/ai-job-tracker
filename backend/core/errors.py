@@ -47,3 +47,11 @@ class JobNotFoundError(DomainException):
 
 class InvalidJobDataError(DomainException):
     default_detail = "Invalid job data"
+
+
+class ApplicationNotFoundError(DomainException):
+    default_detail = "Application not found"
+
+
+class ApplicationAlreadyExistsError(DomainException):
+    default_detail = "Application already exists for this job"

@@ -9,6 +9,7 @@ from backend.core.repository.job_repository import JobRepository
 class ListJobsQuery:
     user_id: UUID
     q: str | None = None
+    status: str | None = None
     limit: int = 20
     offset: int = 0
 
@@ -29,6 +30,7 @@ class ListJobsQueryHandler:
         items, total = await self._job_repository.list_and_count(
             user_id=query.user_id,
             q=query.q,
+            status=query.status,
             limit=query.limit,
             offset=query.offset,
         )
