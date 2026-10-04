@@ -46,6 +46,13 @@ class ApplicationCreateInput(BaseModel):
     notes: str | None = None
     applied_at: datetime | None = None
 
+    @field_validator("applied_at", mode="before")
+    @classmethod
+    def validate_applied_at_string_type(cls, v: Any) -> Any:
+        if v is not None and not isinstance(v, str):
+            raise ValueError("applied_at must be an RFC 3339 datetime string")
+        return v
+
     @field_validator("applied_at", mode="after")
     @classmethod
     def validate_tz_aware(cls, v: datetime | None) -> datetime | None:
@@ -55,7 +62,7 @@ class ApplicationCreateInput(BaseModel):
 
 
 class ApplicationUpdateInput(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     status: ApplicationStatus | None = None
     notes: str | None = None
@@ -73,6 +80,13 @@ class ApplicationUpdateInput(BaseModel):
         if "applied_at" in data and data["applied_at"] is None:
             raise ValueError("applied_at cannot be null")
         return data
+
+    @field_validator("applied_at", mode="before")
+    @classmethod
+    def validate_applied_at_string_type(cls, v: Any) -> Any:
+        if v is not None and not isinstance(v, str):
+            raise ValueError("applied_at must be an RFC 3339 datetime string")
+        return v
 
     @field_validator("applied_at", mode="after")
     @classmethod

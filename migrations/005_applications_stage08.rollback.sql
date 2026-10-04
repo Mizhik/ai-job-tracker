@@ -10,11 +10,11 @@ BEGIN
             RAISE EXCEPTION 'Rollback aborted: applications contains withdrawn status which cannot be converted to legacy ApplicationStatus enum';
         END IF;
 
-        -- 2. Check for multiline notes that cannot be safely rolled back
+        -- 2. Check for multiline notes or empty string notes that cannot be safely rolled back
         IF EXISTS (
-            SELECT 1 FROM applications WHERE notes IS NOT NULL AND POSITION(E'\n' IN notes) > 0
+            SELECT 1 FROM applications WHERE notes IS NOT NULL AND (POSITION(E'\n' IN notes) > 0 OR notes = '')
         ) THEN
-            RAISE EXCEPTION 'Rollback aborted: applications contains multiline notes which cannot be converted back to VARCHAR[] losslessly';
+            RAISE EXCEPTION 'Rollback aborted: applications contains multiline or empty-string notes which cannot be converted back to VARCHAR[] losslessly';
         END IF;
     END IF;
 END $$;
@@ -59,3 +59,10 @@ ALTER TABLE applications ALTER COLUMN notes TYPE VARCHAR[]
         WHEN notes IS NULL THEN NULL
         ELSE string_to_array(notes, E'\n')
     END;
+
+-- Remove created_at column added by migration 005 to restore pre-005 schema fidelity
+ALTER TABLE applications DROP COLUMN IF EXISTS created_at;
+
+-- Restore nullability state for applied_at and updated_at per pre-005 schema
+ALTER TABLE applications ALTER COLUMN applied_at DROP NOT NULL;
+ALTER TABLE applications ALTER COLUMN updated_at DROP NOT NULL;

@@ -509,6 +509,78 @@ def test_api_applications_full_contract(api_setup):
     assert res_get_del_app.status_code == 404
 
 
+def test_patch_extra_unknown_keys_rejected(api_setup):
+    app, job_repo, app_repo, token_user1, token_user2, user1, user2 = api_setup
+    client = TestClient(app)
+
+    # Create job and application for user1
+    res_job = client.post(
+        "/jobs",
+        json={"title": "Dev", "company": "Co"},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    job_id = res_job.json()["id"]
+
+    res_app = client.post(
+        f"/jobs/{job_id}/application",
+        json={},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    app_id = res_app.json()["id"]
+
+    # 1. Unknown-only keys in PATCH body -> 422
+    res_extra_only = client.patch(
+        f"/applications/{app_id}",
+        json={"foo": 1},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    assert res_extra_only.status_code == 422
+
+    # 2. Unknown key alongside valid key in PATCH body -> 422
+    res_extra_and_valid = client.patch(
+        f"/applications/{app_id}",
+        json={"foo": 1, "status": "interview"},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    assert res_extra_and_valid.status_code == 422
+
+
+def test_applied_at_numeric_and_non_string_types_rejected(api_setup):
+    app, job_repo, app_repo, token_user1, token_user2, user1, user2 = api_setup
+    client = TestClient(app)
+
+    res_job = client.post(
+        "/jobs",
+        json={"title": "Dev", "company": "Co"},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    job_id = res_job.json()["id"]
+
+    # 1. Numeric Unix timestamp on POST -> 422
+    res_post_num = client.post(
+        f"/jobs/{job_id}/application",
+        json={"applied_at": 1234567890},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    assert res_post_num.status_code == 422
+
+    # Create valid application
+    res_app = client.post(
+        f"/jobs/{job_id}/application",
+        json={},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    app_id = res_app.json()["id"]
+
+    # 2. Numeric Unix timestamp on PATCH -> 422
+    res_patch_num = client.patch(
+        f"/applications/{app_id}",
+        json={"applied_at": 1234567890},
+        headers={"Authorization": f"Bearer {token_user1}"},
+    )
+    assert res_patch_num.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_concurrent_post_application_isolation():
     app_repo = InMemoryApplicationRepository()
@@ -588,9 +660,12 @@ def test_migration_preflight_checks_sql_contents():
 
 
 def test_migration_rollback_safety_checks_sql_contents():
-    # Verify rollback file contains data-safety guards
+    # Verify rollback file contains data-safety guards and schema restoration
     with open("migrations/005_applications_stage08.rollback.sql", "r") as f:
         rollback_sql = f.read()
 
     assert "applications contains withdrawn status which cannot be converted to legacy ApplicationStatus enum" in rollback_sql
-    assert "applications contains multiline notes which cannot be converted back to VARCHAR[] losslessly" in rollback_sql
+    assert "applications contains multiline or empty-string notes which cannot be converted back to VARCHAR[] losslessly" in rollback_sql
+    assert "DROP COLUMN IF EXISTS created_at" in rollback_sql
+    assert "applied_at DROP NOT NULL" in rollback_sql
+    assert "updated_at DROP NOT NULL" in rollback_sql
