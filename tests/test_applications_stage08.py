@@ -644,7 +644,7 @@ async def test_asyncpg_application_repository_sql_and_exception_mapping():
 # --- 5. Migration Fixture Preflight & Safety Tests ---
 
 def test_migration_preflight_checks_sql_contents():
-    # Verify migration file contains all required preflight checks
+    # Verify migration file contains all required preflight checks and NOT NULL enforcement
     with open("migrations/005_applications_stage08.sql", "r") as f:
         sql = f.read()
 
@@ -654,6 +654,8 @@ def test_migration_preflight_checks_sql_contents():
     assert "application user_id does not match job user_id owner" in sql
     assert "duplicate applications found" in sql
     assert "notes array contains embedded NULL elements" in sql
+    assert "ALTER TABLE applications ALTER COLUMN user_id SET NOT NULL;" in sql
+    assert "ALTER TABLE applications ALTER COLUMN job_id SET NOT NULL;" in sql
     assert "jobs_id_user_id_key" in sql
     assert "fk_applications_job_user" in sql
     assert "idx_applications_user_status" in sql
@@ -666,6 +668,8 @@ def test_migration_rollback_safety_checks_sql_contents():
 
     assert "applications contains withdrawn status which cannot be converted to legacy ApplicationStatus enum" in rollback_sql
     assert "applications contains multiline or empty-string notes which cannot be converted back to VARCHAR[] losslessly" in rollback_sql
+    assert "ALTER TABLE applications ALTER COLUMN user_id DROP NOT NULL;" in rollback_sql
+    assert "ALTER TABLE applications ALTER COLUMN job_id DROP NOT NULL;" in rollback_sql
     assert "DROP COLUMN IF EXISTS created_at" in rollback_sql
     assert "applied_at DROP NOT NULL" in rollback_sql
     assert "updated_at DROP NOT NULL" in rollback_sql

@@ -68,6 +68,10 @@ BEGIN
 END $$;
 
 -- Step 2: Update applications table structure
+-- Explicitly enforce NOT NULL on user_id and job_id
+ALTER TABLE applications ALTER COLUMN user_id SET NOT NULL;
+ALTER TABLE applications ALTER COLUMN job_id SET NOT NULL;
+
 -- Remove default on status column if it relies on old enum
 ALTER TABLE applications ALTER COLUMN status DROP DEFAULT;
 

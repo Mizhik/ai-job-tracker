@@ -63,6 +63,8 @@ ALTER TABLE applications ALTER COLUMN notes TYPE VARCHAR[]
 -- Remove created_at column added by migration 005 to restore pre-005 schema fidelity
 ALTER TABLE applications DROP COLUMN IF EXISTS created_at;
 
--- Restore nullability state for applied_at and updated_at per pre-005 schema
+-- Restore nullability state for user_id, job_id, applied_at and updated_at per pre-005 schema
+ALTER TABLE applications ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE applications ALTER COLUMN job_id DROP NOT NULL;
 ALTER TABLE applications ALTER COLUMN applied_at DROP NOT NULL;
 ALTER TABLE applications ALTER COLUMN updated_at DROP NOT NULL;
