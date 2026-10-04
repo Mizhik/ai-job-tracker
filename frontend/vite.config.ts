@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => {
           target: backendTarget,
           changeOrigin: true,
         },
+        '/applications': {
+          target: backendTarget,
+          changeOrigin: true,
+        },
       },
     },
   };

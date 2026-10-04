@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { createJob, importJobPreview } from '../api/jobs';
 import { JobResponse } from '../api/types';
+import { validateAndBuildJobPayload } from '../utils/validation';
 
 interface CreateJobFormProps {
   onSuccess: (job: JobResponse) => void;
@@ -122,106 +123,24 @@ export const CreateJobForm: React.FC<CreateJobFormProps> = ({ onSuccess, onCance
     setError(null);
     setInfoNotice(null);
 
-    // Title validation
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError('Вкажіть назву вакансії');
+    const { payload, error: valError } = validateAndBuildJobPayload({
+      title,
+      company,
+      location,
+      source,
+      sourceUrl,
+      salaryMin,
+      salaryMax,
+      currency,
+      salaryPeriod,
+      technologies,
+      description,
+    });
+
+    if (valError || !payload) {
+      setError(valError || 'Перевірте правильність заповнення форми');
       return;
     }
-
-    // Company validation
-    const trimmedCompany = company.trim();
-    if (!trimmedCompany) {
-      setError('Вкажіть назву компанії');
-      return;
-    }
-
-    // Salary validation
-    let minNum: number | null = null;
-    let maxNum: number | null = null;
-
-    if (salaryMin.trim() !== '') {
-      const num = Number(salaryMin);
-      if (!Number.isFinite(num) || !Number.isInteger(num)) {
-        setError('Мінімальна зарплата повинна бути цілим числом');
-        return;
-      }
-      if (num < 0) {
-        setError('Мінімальна зарплата не може бути від’ємною');
-        return;
-      }
-      minNum = num;
-    }
-
-    if (salaryMax.trim() !== '') {
-      const num = Number(salaryMax);
-      if (!Number.isFinite(num) || !Number.isInteger(num)) {
-        setError('Максимальна зарплата повинна бути цілим числом');
-        return;
-      }
-      if (num < 0) {
-        setError('Максимальна зарплата не може бути від’ємною');
-        return;
-      }
-      maxNum = num;
-    }
-
-    if (minNum !== null && maxNum !== null && minNum > maxNum) {
-      setError('Мінімальна зарплата не може бути більшою за максимальну');
-      return;
-    }
-
-    const hasNumericSalary = minNum !== null || maxNum !== null;
-    const trimmedCurrency = currency.trim().toUpperCase();
-
-    if (hasNumericSalary) {
-      if (!trimmedCurrency || !salaryPeriod) {
-        setError('При вказівці зарплати необхідно вказати валюту та період оплати');
-        return;
-      }
-    }
-
-    if (trimmedCurrency !== '') {
-      if (!/^[A-Z]{3}$/.test(trimmedCurrency)) {
-        setError('Код валюти повинен складатися з 3 латинських літер (наприклад, USD, EUR, UAH)');
-        return;
-      }
-    }
-
-    // Source URL validation
-    const trimmedSourceUrl = sourceUrl.trim();
-    if (trimmedSourceUrl !== '') {
-      try {
-        const parsed = new URL(trimmedSourceUrl);
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-          setError('Посилання на вакансію повинно починатися з http:// або https://');
-          return;
-        }
-      } catch {
-        setError('Вкажіть коректне посилання на вакансію (http:// або https://)');
-        return;
-      }
-    }
-
-    // Parse technologies
-    const parsedTechs = technologies
-      .split(/[\n,]+/)
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const payload = {
-      title: trimmedTitle,
-      company: trimmedCompany,
-      description: description.trim() || null,
-      location: location.trim() || null,
-      salary_min: minNum,
-      salary_max: maxNum,
-      currency: hasNumericSalary ? (trimmedCurrency || null) : null,
-      salary_period: hasNumericSalary ? (salaryPeriod || null) : null,
-      technologies: parsedTechs.length > 0 ? parsedTechs : null,
-      source_url: trimmedSourceUrl || null,
-      source: source.trim() || null,
-    };
 
     setIsSubmitting(true);
 

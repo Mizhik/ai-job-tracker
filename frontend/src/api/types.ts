@@ -48,6 +48,36 @@ export class ApiError extends Error {
   }
 }
 
+export type ApplicationStatus = 'applied' | 'interview' | 'offer' | 'rejected' | 'withdrawn';
+
+export interface ApplicationSummaryResponse {
+  id: string;
+  status: ApplicationStatus;
+  applied_at: string;
+}
+
+export interface ApplicationResponse {
+  id: string;
+  job_id: string;
+  status: ApplicationStatus;
+  notes?: string | null;
+  applied_at: string;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface CreateApplicationPayload {
+  status?: ApplicationStatus;
+  notes?: string | null;
+  applied_at?: string | null;
+}
+
+export interface UpdateApplicationPayload {
+  status?: ApplicationStatus;
+  notes?: string | null;
+  applied_at?: string | null;
+}
+
 export interface JobResponse {
   id: string;
   title: string;
@@ -61,7 +91,7 @@ export interface JobResponse {
   technologies?: string[] | null;
   source_url?: string | null;
   source?: string | null;
-  application?: null;
+  application?: ApplicationSummaryResponse | null;
   created_at: string;
   updated_at?: string | null;
 }
@@ -75,6 +105,7 @@ export interface JobListResponse {
 
 export interface FetchJobsParams {
   q?: string;
+  status?: string;
   limit?: number;
   offset?: number;
 }
@@ -82,6 +113,20 @@ export interface FetchJobsParams {
 export interface CreateJobPayload {
   title: string;
   company: string;
+  description?: string | null;
+  location?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  currency?: string | null;
+  salary_period?: string | null;
+  technologies?: string[] | null;
+  source_url?: string | null;
+  source?: string | null;
+}
+
+export interface UpdateJobPayload {
+  title?: string;
+  company?: string;
   description?: string | null;
   location?: string | null;
   salary_min?: number | null;

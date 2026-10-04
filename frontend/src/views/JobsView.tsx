@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { JobDetailView } from '../components/JobDetailView';
 import { LoadingState } from '../components/LoadingState';
-import { formatDate, formatSalary } from '../utils/formatters';
+import { formatDate, formatSalary, getStatusBadgeClass, getStatusLabel } from '../utils/formatters';
 
 export const JobsView: React.FC = () => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -14,6 +14,8 @@ export const JobsView: React.FC = () => {
 
   const [searchInput, setSearchInput] = useState<string>('');
   const [activeQuery, setActiveQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [activeStatus, setActiveStatus] = useState<string>('');
   const [offset, setOffset] = useState<number>(0);
   const [listRevision, setListRevision] = useState<number>(0);
   const limit = 20;
@@ -33,10 +35,21 @@ export const JobsView: React.FC = () => {
     try {
       const response = await getJobs({
         q: activeQuery,
+        status: activeStatus,
         limit,
         offset,
       });
+
       if (requestId === requestIdRef.current) {
+        // Boundary check: if items were deleted and offset is at or beyond total, adjust offset
+        if (offset > 0 && offset >= response.total) {
+          const newOffset = response.total > 0
+            ? Math.max(0, (Math.ceil(response.total / limit) - 1) * limit)
+            : 0;
+          setOffset(newOffset);
+          return;
+        }
+
         setJobs(response.items);
         setTotal(response.total);
         setIsLoading(false);
@@ -47,7 +60,7 @@ export const JobsView: React.FC = () => {
         setIsLoading(false);
       }
     }
-  }, [activeQuery, offset, listRevision]);
+  }, [activeQuery, activeStatus, offset, listRevision]);
 
   useEffect(() => {
     fetchJobsList();
@@ -62,19 +75,33 @@ export const JobsView: React.FC = () => {
     setOffset(0);
   };
 
-  const handleClearSearch = () => {
+  const handleStatusSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setStatusFilter(val);
+    setActiveStatus(val);
+    setOffset(0);
+  };
+
+  const handleResetFilters = () => {
     setSearchInput('');
     setActiveQuery('');
+    setStatusFilter('');
+    setActiveStatus('');
     setOffset(0);
   };
 
   const handleCreateSuccess = (createdJob: JobResponse) => {
-    setSearchInput('');
-    setActiveQuery('');
-    setOffset(0);
+    handleResetFilters();
     setListRevision((revision) => revision + 1);
     setIsCreating(false);
     setSelectedJobId(createdJob.id);
+  };
+
+  const handleBackFromDetail = (wasModified?: boolean) => {
+    setSelectedJobId(null);
+    if (wasModified) {
+      setListRevision((revision) => revision + 1);
+    }
   };
 
   const totalPages = Math.ceil(total / limit) || 1;
@@ -96,7 +123,7 @@ export const JobsView: React.FC = () => {
     return (
       <JobDetailView
         jobId={selectedJobId}
-        onBack={() => setSelectedJobId(null)}
+        onBack={handleBackFromDetail}
       />
     );
   }
@@ -112,10 +139,12 @@ export const JobsView: React.FC = () => {
     );
   }
 
+  const isFilterActive = Boolean(activeQuery || activeStatus);
+
   return (
-    <section className="jobs-view-container" aria-label="Збережені вакансії">
+    <section className="jobs-view-container" aria-label="Трекер вакансій">
       <div className="jobs-header-actions">
-        <h2 className="jobs-view-title">Збережені вакансії</h2>
+        <h2 className="jobs-view-title">Трекер вакансій</h2>
         <button
           type="button"
           className="btn-primary create-job-btn"
@@ -140,23 +169,46 @@ export const JobsView: React.FC = () => {
               <button
                 type="button"
                 className="search-input-clear-btn"
-                onClick={handleClearSearch}
+                onClick={() => {
+                  setSearchInput('');
+                  setActiveQuery('');
+                  setOffset(0);
+                }}
                 aria-label="Очистити поле пошуку"
               >
                 ✕
               </button>
             )}
           </div>
+
+          <div className="status-filter-wrapper">
+            <select
+              className="form-input status-select"
+              value={statusFilter}
+              onChange={handleStatusSelectChange}
+              aria-label="Фільтр за статусом"
+            >
+              <option value="">Всі статуси</option>
+              <option value="saved">Збережено (без відгуку)</option>
+              <option value="applied">Подано</option>
+              <option value="interview">Співбесіда</option>
+              <option value="offer">Офер</option>
+              <option value="rejected">Відмова</option>
+              <option value="withdrawn">Відкликано</option>
+            </select>
+          </div>
+
           <button type="submit" className="btn-primary search-submit-btn">
             Шукати
           </button>
-          {activeQuery && (
+
+          {isFilterActive && (
             <button
               type="button"
               className="btn-secondary clear-search-btn"
-              onClick={handleClearSearch}
+              onClick={handleResetFilters}
             >
-              Скинути фільтр
+              Скинути фільтри
             </button>
           )}
         </form>
@@ -172,12 +224,12 @@ export const JobsView: React.FC = () => {
           onRetry={fetchJobsList}
         />
       ) : total === 0 ? (
-        activeQuery ? (
+        isFilterActive ? (
           <EmptyState
             title="Нічого не знайдено"
-            description={`За вашим запитом «${activeQuery}» не знайдено жодної вакансії.`}
-            actionLabel="Очистити пошук"
-            onAction={handleClearSearch}
+            description="За вашим запитом або обраним фільтром не знайдено жодної вакансії."
+            actionLabel="Очистити фільтри"
+            onAction={handleResetFilters}
           />
         ) : (
           <EmptyState
@@ -191,7 +243,7 @@ export const JobsView: React.FC = () => {
         <div className="jobs-content">
           <div className="jobs-list-info">
             <span className="jobs-total-badge">
-              {activeQuery
+              {isFilterActive
                 ? `Знайдено вакансій: ${total}`
                 : `Усього збережених вакансій: ${total}`}
             </span>
@@ -205,6 +257,7 @@ export const JobsView: React.FC = () => {
                 job.currency,
                 job.salary_period
               );
+              const currentStatus = job.application?.status || 'saved';
 
               return (
                 <li key={job.id} className="job-card-item">
@@ -224,6 +277,14 @@ export const JobsView: React.FC = () => {
                       </div>
 
                       <div className="job-card-meta">
+                        <span className={`job-badge ${getStatusBadgeClass(currentStatus)}`}>
+                          {getStatusLabel(currentStatus)}
+                        </span>
+                        {job.application?.applied_at && (
+                          <span className="job-badge job-badge-date" title="Дата відгуку">
+                            Відгук: {formatDate(job.application.applied_at)}
+                          </span>
+                        )}
                         {job.location && (
                           <span className="job-badge job-badge-location">
                             {job.location}
@@ -239,8 +300,8 @@ export const JobsView: React.FC = () => {
                             {job.source}
                           </span>
                         )}
-                        <span className="job-badge job-badge-date">
-                          {formatDate(job.created_at)}
+                        <span className="job-badge job-badge-date" title="Дата збереження">
+                          Збережено: {formatDate(job.created_at)}
                         </span>
                       </div>
 
