@@ -7,7 +7,7 @@ import { LoadingState } from './components/LoadingState';
 import { ErrorState } from './components/ErrorState';
 
 const AppContent: React.FC = () => {
-  const { user, isAuthenticated, isLoading, logoutError, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, sessionError, logoutError, logout, restoreSession } = useAuth();
   const [guestView, setGuestView] = useState<'login' | 'register'>('login');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -103,7 +103,14 @@ const AppContent: React.FC = () => {
           />
         )}
 
-        {isAuthenticated ? (
+        {sessionError && !isAuthenticated ? (
+          <ErrorState
+            title="Не вдалося перевірити сесію"
+            message={sessionError}
+            retryLabel="Спробувати знову"
+            onRetry={restoreSession}
+          />
+        ) : isAuthenticated ? (
           <JobsView />
         ) : (
           guestView === 'login' ? (
