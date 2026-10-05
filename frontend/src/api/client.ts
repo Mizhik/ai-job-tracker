@@ -31,7 +31,7 @@ export function parseApiErrorMessage(status: number, data: unknown): { message: 
     return { message: 'Ресурс не знайдено' };
   }
   if (status >= 500) {
-    return { message: 'Внутрішня помилка сервера' };
+    return { message: 'Сервер тимчасово недоступний. Спробуйте ще раз пізніше.' };
   }
 
   return { message: 'Сталася невідома помилка' };
@@ -76,9 +76,6 @@ class ApiClient {
         const token = await this.refreshHandler!();
         this.setAccessToken(token);
         return token;
-      } catch (err) {
-        this.setAccessToken(null);
-        throw err;
       } finally {
         this.refreshPromise = null;
       }
@@ -116,12 +113,7 @@ class ApiClient {
     }
 
     if (response.status === 401 && !skipAuth && !isRetry && this.refreshHandler) {
-      let newToken: string | null = null;
-      try {
-        newToken = await this.refreshSingleFlight();
-      } catch (refreshErr) {
-        newToken = null;
-      }
+      const newToken = await this.refreshSingleFlight();
 
       if (newToken) {
         try {

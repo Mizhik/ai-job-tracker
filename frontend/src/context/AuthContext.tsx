@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { apiClient } from '../api/client';
 import {
+  ApiError,
   AuthTokenResponse,
   CsrfResponse,
   LoginPayload,
@@ -12,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  sessionError: string | null;
   logoutError: string | null;
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<User>;
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const restorePromiseRef = useRef<Promise<void> | null>(null);
@@ -40,8 +43,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       return refreshRes.access_token;
-    } catch {
-      return null;
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        return null;
+      }
+      throw err;
     }
   }, []);
 
@@ -56,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setIsLoading(true);
+    setSessionError(null);
     setLogoutError(null);
 
     const promise = (async () => {
@@ -69,9 +76,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           apiClient.setAccessToken(null);
           setUser(null);
         }
-      } catch {
-        apiClient.setAccessToken(null);
-        setUser(null);
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          apiClient.setAccessToken(null);
+          setUser(null);
+        } else {
+          setSessionError('Не вдалося перевірити сесію. Сервер тимчасово недоступний.');
+        }
       } finally {
         setIsLoading(false);
         restorePromiseRef.current = null;
@@ -89,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [performRefresh, handleUnauthenticated, restoreSession]);
 
   const login = async (payload: LoginPayload): Promise<void> => {
+    setSessionError(null);
     setLogoutError(null);
     const bodyParams = new URLSearchParams();
     bodyParams.append('username', payload.email);
@@ -160,6 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         isLoading,
+        sessionError,
         logoutError,
         login,
         register,
