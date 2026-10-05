@@ -1,0 +1,6 @@
+/docs
+*ini
+*env
+__pycache__
+.vscode
+/social-content

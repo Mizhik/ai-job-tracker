@@ -1,0 +1,81 @@
+import datetime
+from uuid import UUID
+
+from jose import ExpiredSignatureError, JWTError, jwt
+from pydantic import ValidationError
+
+from backend.core.abc.access_token_generator import AccessTokenGenerator
+from backend.core.errors import TokenInvalidError, TokenIsExpiredError
+from backend.core.token import DecodedAccessToken
+from backend.infrastructure.settings.auth import AuthSettings
+
+
+class JwtTokenService(AccessTokenGenerator):
+    _EXPIRATION_MINUTES = 15
+
+    def __init__(self, settings: AuthSettings):
+        self._settings = settings
+
+    def create_access_token(
+        self,
+        email: str,
+        expires_delta: datetime.timedelta | None = None,
+        session_id: UUID | None = None,
+    ) -> str:
+        to_encode = {
+            "sub": str(email),
+        }
+        if session_id:
+            to_encode["sid"] = str(session_id)
+
+        if expires_delta:
+            expire = datetime.datetime.now(datetime.timezone.utc) + expires_delta
+        else:
+            expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                minutes=self._EXPIRATION_MINUTES
+            )
+
+        to_encode.update({"exp": expire})
+        encoded_jwt = jwt.encode(
+            to_encode,
+            self._settings.secret_key,
+            algorithm=self._settings.algorithm,
+        )
+
+        return encoded_jwt
+
+    def decode_access_token(self, token: str) -> DecodedAccessToken:
+        try:
+            payload = jwt.decode(
+                token,
+                self._settings.secret_key,
+                algorithms=[self._settings.algorithm],
+            )
+            email = payload.get("sub")
+            if not email:
+                raise TokenInvalidError("Invalid token: missing subject")
+
+            exp = payload.get("exp")
+            if exp is None:
+                raise TokenInvalidError("Invalid token: missing expiration")
+
+            expires_at = datetime.datetime.fromtimestamp(
+                exp, tz=datetime.timezone.utc
+            )
+
+            sid_raw = payload.get("sid")
+            session_id = UUID(sid_raw) if sid_raw else None
+
+            return DecodedAccessToken(
+                email=email,
+                expires_at=expires_at,
+                session_id=session_id,
+            )
+        except (TokenInvalidError, TokenIsExpiredError):
+            raise
+        except ExpiredSignatureError:
+            raise TokenIsExpiredError()
+        except JWTError:
+            raise TokenInvalidError("Invalid token")
+        except (ValueError, TypeError, OverflowError, ValidationError) as err:
+            raise TokenInvalidError(f"Invalid token claim: {err}")

@@ -1,0 +1,57 @@
+from typing import ClassVar
+
+
+class DomainException(Exception):
+    default_detail: ClassVar[str]
+
+    def __init__(self, detail: str | None = None):
+        self.detail = detail or self.default_detail
+        super().__init__(self.detail)
+
+
+class UserAlreadyExistsException(DomainException):
+    default_detail = "Email already in use"
+
+
+class EmailOrPasswordIncorrectError(DomainException):
+    default_detail = "Email or password is incorrect"
+
+
+class UserBlockedError(DomainException):
+    default_detail = "User is blocked"
+
+
+class UserNotFoundError(DomainException):
+    default_detail = "User not found"
+
+
+class TokenIsExpiredError(DomainException):
+    default_detail = "Token is expired"
+
+
+class TokenInvalidError(DomainException):
+    default_detail = "Token is invalid"
+
+
+class NoUpdateDataProvidedError(DomainException):
+    default_detail = "No data provided for update"
+
+
+class NotEnoughPermissionsError(DomainException):
+    default_detail = "Not enough permissions to perform this action"
+
+
+class JobNotFoundError(DomainException):
+    default_detail = "Job not found"
+
+
+class InvalidJobDataError(DomainException):
+    default_detail = "Invalid job data"
+
+
+class ApplicationNotFoundError(DomainException):
+    default_detail = "Application not found"
+
+
+class ApplicationAlreadyExistsError(DomainException):
+    default_detail = "Application already exists for this job"

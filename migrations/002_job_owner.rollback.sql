@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_jobs_user_id;
+
+ALTER TABLE jobs DROP COLUMN IF EXISTS user_id;
